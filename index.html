@@ -1,6 +1,7 @@
 <title>Zouk Pulse</title>
 <style>
 :root {
+  color-scheme: light dark;
   --ink: #17150F;
   --paper: #F3EFE6;
   --surface: #FFFFFF;
@@ -17,6 +18,10 @@
   --clay-dim: #F7E4DC;
   --moss: #3C6E45;
   --moss-dim: #E3EEE2;
+  --indigo: #4B4F91;
+  --indigo-dim: #E7E7F4;
+  --rose: #9C3F55;
+  --rose-dim: #F5E4E8;
   --grid: #E3DCC9;
   --focus: #1F5C58;
   --shadow: 0 1px 2px rgba(23,21,15,0.06), 0 4px 16px rgba(23,21,15,0.05);
@@ -40,12 +45,18 @@
     --clay-dim: #382118;
     --moss: #7BB283;
     --moss-dim: #1E2D1F;
+    --indigo: #9AA0E8;
+    --indigo-dim: #262A4A;
+    --rose: #E28CA0;
+    --rose-dim: #3A2129;
     --grid: #2C2818;
     --focus: #4FA39C;
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
   }
 }
+:root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --ink: #EFEAE0;
   --paper: #14130F;
   --surface: #1C1A14;
@@ -62,20 +73,24 @@
   --clay-dim: #382118;
   --moss: #7BB283;
   --moss-dim: #1E2D1F;
+  --indigo: #9AA0E8;
+  --indigo-dim: #262A4A;
+  --rose: #E28CA0;
+  --rose-dim: #3A2129;
   --grid: #2C2818;
   --focus: #4FA39C;
   --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; height: 100%; background: var(--paper); }
 body {
-  background: var(--paper);
   color: var(--text);
   font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 .num, table td.num, .kpi-value, .axis-label, .tick {
   font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -88,33 +103,56 @@ a { color: var(--petrol); }
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
-.wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 80px; }
+/* ---------- app shell ---------- */
+.app { display: flex; flex-direction: column; height: 100vh; }
 
-/* ---------- header ---------- */
-header.top {
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 24px; margin-bottom: 28px; flex-wrap: wrap;
-  border-bottom: 1px solid var(--border); padding-bottom: 20px;
+header.topbar {
+  flex: 0 0 auto; background: var(--surface); border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow); z-index: 10;
 }
-.brand { display: flex; align-items: baseline; gap: 12px; }
+.topbar-inner {
+  max-width: 1280px; margin: 0 auto; padding: 14px 24px;
+  display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; flex: 0 0 auto; }
 .brand .mark {
-  font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: 26px;
+  font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: 21px;
   letter-spacing: -0.01em; color: var(--text);
 }
 .brand .tag {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--text-faint); border: 1px solid var(--border); border-radius: 100px;
-  padding: 3px 9px; font-weight: 600;
+  padding: 3px 8px; font-weight: 600; white-space: nowrap;
 }
-.range-note { text-align: right; color: var(--text-dim); font-size: 12.5px; }
+
+nav.tabs { display: flex; gap: 2px; flex: 1 1 auto; }
+.tab-btn {
+  border: none; background: transparent; color: var(--text-dim); font: inherit;
+  font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 8px; cursor: pointer;
+  position: relative;
+}
+.tab-btn:hover { color: var(--text); background: var(--surface-2); }
+.tab-btn.active { color: var(--petrol); }
+.tab-btn.active::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -15px; height: 2px;
+  background: var(--petrol); border-radius: 2px;
+}
+
+.range-note { text-align: right; color: var(--text-dim); font-size: 12px; flex: 0 0 auto; }
 .range-note strong { color: var(--text); font-weight: 600; }
 .range-note .stamp { color: var(--text-faint); }
+
+main.content { flex: 1 1 auto; overflow-y: auto; }
+.content-inner { max-width: 1280px; margin: 0 auto; padding: 24px 24px 60px; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
 /* ---------- KPI row ---------- */
 .kpis {
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
   background: var(--border); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden; margin-bottom: 32px;
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 24px;
 }
 .kpi {
   background: var(--surface); padding: 16px 16px 14px; position: relative;
@@ -132,7 +170,7 @@ header.top {
 /* ---------- section shell ---------- */
 section.panel {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 20px 22px 22px; margin-bottom: 24px; box-shadow: var(--shadow);
+  padding: 20px 22px 22px; margin-bottom: 20px; box-shadow: var(--shadow);
 }
 .panel-head {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;
@@ -162,6 +200,18 @@ select.daysel {
   padding: 6px 10px; cursor: pointer;
 }
 
+/* ---------- metric checkbox select ---------- */
+.metric-select { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.metric-opt {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600;
+  color: var(--text-dim); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px 7px 10px; cursor: pointer; user-select: none;
+}
+.metric-opt:hover { border-color: var(--text-faint); }
+.metric-opt.active { background: var(--surface-2); color: var(--text); border-color: var(--text-faint); }
+.metric-opt input { width: 14px; height: 14px; accent-color: var(--petrol); margin: 0; cursor: pointer; }
+.metric-opt .swatch { width: 9px; height: 9px; border-radius: 3px; display: inline-block; flex: 0 0 auto; }
+
 /* ---------- charts ---------- */
 .chart-scroll { overflow-x: auto; }
 svg.chart { display: block; overflow: visible; }
@@ -177,13 +227,14 @@ svg.chart { display: block; overflow: visible; }
 .bar-meta { fill: var(--petrol); opacity: 0.85; }
 .bar-google { fill: var(--brass); opacity: 0.9; }
 .today-marker { stroke: var(--text-faint); stroke-width: 1; stroke-dasharray: 3 3; }
+.today-marker-label { fill: var(--text-faint); font-size: 10px; }
 
 .hoverline { stroke: var(--text-faint); stroke-width: 1; opacity: 0; pointer-events: none; }
 .tooltip {
   position: absolute; pointer-events: none; background: var(--ink); color: var(--paper);
   border-radius: 8px; padding: 9px 12px; font-size: 12px; line-height: 1.55;
   box-shadow: var(--shadow); opacity: 0; transform: translate(-50%, -100%);
-  transition: opacity 0.08s ease; white-space: nowrap; z-index: 5;
+  transition: opacity 0.08s ease; white-space: nowrap; z-index: 50;
 }
 .tooltip .t-title { font-weight: 700; margin-bottom: 3px; color: var(--paper); }
 .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; }
@@ -191,7 +242,8 @@ svg.chart { display: block; overflow: visible; }
 
 /* ---------- two-col split ---------- */
 .split { display: grid; grid-template-columns: 1.55fr 1fr; gap: 24px; align-items: stretch; }
-@media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+.split-campaigns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 860px) { .split, .split-campaigns { grid-template-columns: 1fr; } }
 
 /* ---------- campaign bars ---------- */
 .camp-list { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
@@ -208,7 +260,7 @@ svg.chart { display: block; overflow: visible; }
 
 /* ---------- table ---------- */
 .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
-table { border-collapse: collapse; width: 100%; min-width: 880px; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; min-width: 1080px; font-size: 12.5px; }
 thead th {
   position: sticky; top: 0; background: var(--surface-2); text-align: right;
   padding: 9px 12px; font-weight: 600; font-size: 10.5px; text-transform: uppercase;
@@ -223,7 +275,7 @@ tbody td.txt { text-align: left; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--surface-2); }
 tbody tr.zero td { color: var(--text-faint); }
-.table-scroll-body { max-height: 520px; overflow-y: auto; }
+.table-scroll-body { max-height: 440px; overflow-y: auto; }
 
 .foot-note {
   font-size: 11.5px; color: var(--text-faint); margin-top: 16px; line-height: 1.6;
@@ -233,7 +285,9 @@ tbody tr.zero td { color: var(--text-faint); }
 
 @media (max-width: 760px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }
-  header.top { flex-direction: column; align-items: flex-start; }
+  .topbar-inner { flex-direction: column; align-items: flex-start; gap: 12px; }
+  nav.tabs { width: 100%; overflow-x: auto; }
+  .tab-btn.active::after { bottom: -11px; }
   .range-note { text-align: left; }
 }
 </style>
@@ -241,92 +295,131 @@ tbody tr.zero td { color: var(--text-faint); }
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<div class="wrap">
+<div class="app">
 
-  <header class="top">
-    <div class="brand">
-      <span class="mark">Zouk Pulse</span>
-      <span class="tag">Meta + Google + Shopify</span>
-    </div>
-    <div class="range-note">
-      <div><strong id="rangeLabel">Aug 1 – 27, 2026</strong> &middot; hourly, IST</div>
-      <div class="stamp" id="stampNote"></div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="mark">Zouk Pulse</span>
+        <span class="tag">Meta + Google + Shopify</span>
+      </div>
+      <nav class="tabs" id="tabsNav" role="tablist" aria-label="Dashboard sections">
+        <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" id="tabbtn-overview" aria-controls="tab-overview">Overview</button>
+        <button class="tab-btn" data-tab="hourbyhour" role="tab" aria-selected="false" id="tabbtn-hourbyhour" aria-controls="tab-hourbyhour">Hour by Hour</button>
+        <button class="tab-btn" data-tab="campaigns" role="tab" aria-selected="false" id="tabbtn-campaigns" aria-controls="tab-campaigns">Campaigns</button>
+      </nav>
+      <div class="range-note">
+        <div><strong id="rangeLabel">Aug 1 – 27, 2026</strong> &middot; hourly, IST</div>
+        <div class="stamp" id="stampNote"></div>
+      </div>
     </div>
   </header>
 
-  <div class="kpis" id="kpiRow"></div>
+  <main class="content" id="content">
+    <div class="content-inner">
 
-  <section class="panel">
-    <div class="panel-head">
-      <div>
-        <div class="panel-title">Spend vs. revenue</div>
-        <div class="panel-sub" id="chartSub">Daily totals across the full range &mdash; click a point to inspect that day hour by hour.</div>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <div class="legend">
-          <span><i style="background:var(--clay)"></i>Ad spend</span>
-          <span><i style="background:var(--moss)"></i>Revenue</span>
-        </div>
-        <div class="seg" id="grainSeg">
-          <button data-grain="daily" class="active">Daily</button>
-          <button data-grain="hourly">Hourly</button>
-        </div>
-      </div>
+      <!-- ============ OVERVIEW ============ -->
+      <section class="tab-panel active" id="tab-overview" role="tabpanel" aria-labelledby="tabbtn-overview">
+        <div class="kpis" id="kpiRow"></div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Spend vs. revenue</div>
+              <div class="panel-sub" id="chartSub">Daily totals across the full range &mdash; click a point to inspect that day hour by hour.</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="legend">
+                <span><i style="background:var(--clay)"></i>Ad spend</span>
+                <span><i style="background:var(--moss)"></i>Revenue</span>
+              </div>
+              <div class="seg" id="grainSeg">
+                <button data-grain="daily" class="active">Daily</button>
+                <button data-grain="hourly">Hourly</button>
+              </div>
+            </div>
+          </div>
+          <div class="chart-scroll">
+            <svg id="mainChart" class="chart" width="1196" height="300"></svg>
+          </div>
+        </section>
+      </section>
+
+      <!-- ============ HOUR BY HOUR ============ -->
+      <section class="tab-panel" id="tab-hourbyhour" role="tabpanel" aria-labelledby="tabbtn-hourbyhour">
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Hour-on-hour comparison</div>
+              <div class="panel-sub">Every hour since Aug 1, back to back &mdash; pick one variable to trace across the full range.</div>
+            </div>
+          </div>
+          <div class="metric-select" id="metricSelect"></div>
+          <div class="chart-scroll">
+            <svg id="metricChart" class="chart" width="1196" height="320"></svg>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Day breakdown</div>
+              <div class="panel-sub">Meta vs. Google spend, one day at a time.</div>
+            </div>
+            <select class="daysel" id="daySelect"></select>
+          </div>
+          <div class="chart-scroll">
+            <svg id="hourChart" class="chart" width="1196" height="200"></svg>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Hourly detail</div>
+              <div class="panel-sub">Full log for the selected day &mdash; every metric, every hour.</div>
+            </div>
+            <select class="daysel" id="tableDaySelect"></select>
+          </div>
+          <div class="table-scroll">
+            <div class="table-scroll-body">
+              <table id="dataTable">
+                <thead><tr id="tableHead"></tr></thead>
+                <tbody id="tableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="foot-note">
+            <b>Reading this table:</b> Conv. rate is orders &divide; sessions for that hour &mdash; Shopify's own checkout-completion tracking undercounts sessions crossing devices, so it isn't used here. ROAS is total sales &divide; (Meta + Google spend). ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales for that hour &mdash; the inverse view, on a net-of-returns basis. Rows with no spend and no orders are dimmed.
+          </div>
+        </section>
+      </section>
+
+      <!-- ============ CAMPAIGNS ============ -->
+      <section class="tab-panel" id="tab-campaigns" role="tabpanel" aria-labelledby="tabbtn-campaigns">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Top campaigns</div>
+              <div class="panel-sub">By spend, full period (Aug 1 &ndash; 27).</div>
+            </div>
+          </div>
+          <div class="split-campaigns">
+            <div>
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-faint); font-weight:600; margin-bottom:2px;">Meta</div>
+              <div class="camp-list meta" id="metaCampaigns"></div>
+            </div>
+            <div>
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-faint); font-weight:600; margin-bottom:2px;">Google</div>
+              <div class="camp-list google" id="googleCampaigns"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+
     </div>
-    <div class="chart-scroll">
-      <svg id="mainChart" class="chart" width="1196" height="300"></svg>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head">
-      <div>
-        <div class="panel-title">Hour by hour</div>
-        <div class="panel-sub">Meta vs. Google spend, and orders, for one day.</div>
-      </div>
-      <select class="daysel" id="daySelect"></select>
-    </div>
-    <div class="chart-scroll">
-      <svg id="hourChart" class="chart" width="1196" height="220"></svg>
-    </div>
-  </section>
-
-  <div class="split">
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <div class="panel-title">Hourly detail</div>
-          <div class="panel-sub">Full log for the selected day &mdash; every metric, every hour.</div>
-        </div>
-        <select class="daysel" id="tableDaySelect"></select>
-      </div>
-      <div class="table-scroll">
-        <div class="table-scroll-body">
-          <table id="dataTable">
-            <thead><tr id="tableHead"></tr></thead>
-            <tbody id="tableBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="foot-note">
-        <b>Reading this table:</b> Conv. rate is orders &divide; sessions for that hour &mdash; Shopify's own checkout-completion tracking undercounts sessions crossing devices, so it isn't used here. ROAS is total sales &divide; (Meta + Google spend). Rows with no spend and no orders are dimmed.
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <div class="panel-title">Top campaigns</div>
-          <div class="panel-sub">By spend, full period.</div>
-        </div>
-      </div>
-      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-faint); font-weight:600; margin-bottom:2px;">Meta</div>
-      <div class="camp-list meta" id="metaCampaigns"></div>
-      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-faint); font-weight:600; margin:18px 0 2px;">Google</div>
-      <div class="camp-list google" id="googleCampaigns"></div>
-    </section>
-  </div>
-
+  </main>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
@@ -365,6 +458,23 @@ tbody tr.zero td { color: var(--text-faint); }
   document.getElementById('stampNote').textContent =
     'Today (Aug 27) shown through ' + hourLabel(DATA.meta.last_active_hour_today) + ' IST — later hours haven’t happened yet';
 
+  // ---------- tabs ----------
+  var tabBtns = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
+  var content = document.getElementById('content');
+  tabBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      tabBtns.forEach(function(b) {
+        var active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('.tab-panel'), function(p) {
+        p.classList.toggle('active', p.id === 'tab-' + btn.getAttribute('data-tab'));
+      });
+      content.scrollTop = 0;
+    });
+  });
+
   // ---------- KPIs ----------
   var kpiDefs = [
     { label: 'Total ad spend', val: fmtINR(gt.total_spend, {compact:true}), sub: 'Meta ' + fmtINR(gt.meta_spend, {compact:true}) + ' + Google ' + fmtINR(gt.google_spend, {compact:true}), cls: 'accent-spend' },
@@ -387,7 +497,7 @@ tbody tr.zero td { color: var(--text-faint); }
   function renderCampaigns(containerId, list) {
     var max = list.length ? list[0][1] : 1;
     var el = document.getElementById(containerId);
-    list.slice(0, 6).forEach(function(c) {
+    list.slice(0, 10).forEach(function(c) {
       var row = document.createElement('div');
       row.className = 'camp-row';
       var pct = Math.max(3, (c[1] / max) * 100);
@@ -411,7 +521,7 @@ tbody tr.zero td { color: var(--text-faint); }
   }
   function hideTooltip() { tooltip.style.opacity = 0; }
 
-  // ---------- generic line/area chart ----------
+  // ---------- generic two-series line/area chart (spend vs revenue) ----------
   function drawSeriesChart(svgEl, points, opts) {
     var W = 1196, H = opts.height || 300;
     var padL = 54, padR = 18, padT = 16, padB = 30;
@@ -432,7 +542,6 @@ tbody tr.zero td { color: var(--text-faint); }
     var x = function(i) { return padL + (n === 1 ? innerW/2 : (i/(n-1)) * innerW); };
     var y = function(v) { return padT + innerH - (v/maxY)*innerH; };
 
-    // gridlines + y labels
     var ticks = 4;
     for (var t = 0; t <= ticks; t++) {
       var val = (maxY/ticks)*t;
@@ -443,7 +552,6 @@ tbody tr.zero td { color: var(--text-faint); }
       svgEl.appendChild(lbl);
     }
 
-    // x labels (sparse)
     var xLabelEvery = Math.max(1, Math.ceil(n / (opts.maxXLabels || 12)));
     for (var i = 0; i < n; i += xLabelEvery) {
       var lx = el('text', {x: x(i), y: H - 8, class:'axis-label', 'text-anchor':'middle'});
@@ -473,7 +581,6 @@ tbody tr.zero td { color: var(--text-faint); }
     var hoverLine = el('line', {y1: padT, y2: H - padB, class:'hoverline'});
     svgEl.appendChild(hoverLine);
 
-    // dots + hit targets
     for (var i = 0; i < n; i++) {
       (function(i) {
         var p = points[i];
@@ -529,7 +636,7 @@ tbody tr.zero td { color: var(--text-faint); }
           '<div class="t-row"><span class="k">ROAS</span><span>' + fmtX(r.roas) + '</span></div>' +
           '<div class="t-row"><span class="k">Orders</span><span>' + fmtNum(r.orders) + '</span></div>';
       },
-      onClick: function(p) { selectDay(p.raw.date); }
+      onClick: function(p) { selectDay(p.raw.date); tabBtns[1].click(); }
     });
   }
   document.getElementById('grainSeg').addEventListener('click', function(ev) {
@@ -538,6 +645,148 @@ tbody tr.zero td { color: var(--text-faint); }
     Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.toggle('active', b===btn); });
     renderMain();
   });
+
+  // ---------- hour-on-hour single-metric comparison chart ----------
+  var cumSpend = 0, cumNet = 0;
+  hourly.forEach(function(r) {
+    r._hourly_asr = r.net_sales > 0 ? (r.total_spend / r.net_sales) * 100 : null;
+    cumSpend += r.total_spend; cumNet += r.net_sales;
+    r._cum_asr = cumNet > 0 ? (cumSpend / cumNet) * 100 : null;
+  });
+  var todayIdx = -1;
+  hourly.forEach(function(r, i) { if (r.date === DATA.meta.today && r.hour === DATA.meta.last_active_hour_today) todayIdx = i; });
+
+  var metricDefs = {
+    net_sales:     { label: 'Net Sales',      color: 'var(--moss)',   get: function(r){ return r.net_sales; },   fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR },
+    meta_spend:    { label: 'Meta Spend',     color: 'var(--petrol)', get: function(r){ return r.meta_spend; },  fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR },
+    google_spend:  { label: 'Google Spend',   color: 'var(--brass)',  get: function(r){ return r.google_spend; },fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR },
+    sessions:      { label: 'Sessions',       color: 'var(--clay)',   get: function(r){ return r.sessions; },    fmt: fmtNum, fmtFull: fmtNum },
+    hourly_asr:    { label: 'Hourly ASR',     color: 'var(--indigo)', get: function(r){ return r._hourly_asr; }, fmt: fmtPct, fmtFull: fmtPct },
+    cumulative_asr:{ label: 'Cumulative ASR', color: 'var(--rose)',   get: function(r){ return r._cum_asr; },    fmt: fmtPct, fmtFull: fmtPct }
+  };
+  var metricOrder = ['net_sales', 'meta_spend', 'google_spend', 'sessions', 'hourly_asr', 'cumulative_asr'];
+  var activeMetric = 'net_sales';
+
+  var metricSelectEl = document.getElementById('metricSelect');
+  metricOrder.forEach(function(key) {
+    var def = metricDefs[key];
+    var label = document.createElement('label');
+    label.className = 'metric-opt' + (key === activeMetric ? ' active' : '');
+    label.setAttribute('data-metric', key);
+    label.innerHTML =
+      '<input type="checkbox" ' + (key === activeMetric ? 'checked' : '') + '>' +
+      '<span class="swatch" style="background:' + def.color + '"></span>' + def.label;
+    metricSelectEl.appendChild(label);
+    var cb = label.querySelector('input');
+    cb.addEventListener('change', function() {
+      if (!cb.checked) { cb.checked = true; return; }
+      Array.prototype.forEach.call(metricSelectEl.querySelectorAll('.metric-opt'), function(opt) {
+        var isThis = opt === label;
+        opt.classList.toggle('active', isThis);
+        opt.querySelector('input').checked = isThis;
+      });
+      activeMetric = key;
+      renderMetricChart();
+    });
+  });
+
+  function drawMetricChart(svgEl, series, def) {
+    var W = 1196, H = 320, padL = 60, padR = 18, padT = 16, padB = 30;
+    var innerW = W - padL - padR, innerH = H - padT - padB;
+    svgEl.setAttribute('width', W); svgEl.setAttribute('height', H);
+    svgEl.innerHTML = '';
+    var ns = 'http://www.w3.org/2000/svg';
+    function el(tag, attrs) { var e = document.createElementNS(ns, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); return e; }
+    var n = series.length;
+    var vals = series.map(def.get).filter(function(v){ return v !== null && v !== undefined && !isNaN(v); });
+    var maxV = Math.max.apply(null, vals.concat([1])) * 1.12;
+    var minV = Math.min(0, Math.min.apply(null, vals.concat([0])));
+    var range = maxV - minV || 1;
+    var x = function(i) { return padL + (n === 1 ? innerW/2 : (i/(n-1)) * innerW); };
+    var y = function(v) { return padT + innerH - ((v - minV)/range)*innerH; };
+
+    var ticks = 4;
+    for (var t = 0; t <= ticks; t++) {
+      var val = minV + (range/ticks)*t;
+      var gy = y(val);
+      svgEl.appendChild(el('line', {x1:padL, x2:W-padR, y1:gy, y2:gy, class:'gridline'}));
+      var lbl = el('text', {x: padL - 8, y: gy + 3, class:'axis-label', 'text-anchor':'end'});
+      lbl.textContent = def.fmt(val);
+      svgEl.appendChild(lbl);
+    }
+
+    var xLabelEvery = Math.max(1, Math.ceil(n / 16));
+    for (var i = 0; i < n; i += xLabelEvery) {
+      var lx = el('text', {x: x(i), y: H - 8, class:'axis-label', 'text-anchor':'middle'});
+      lx.textContent = dayLabel(series[i].date);
+      svgEl.appendChild(lx);
+    }
+
+    if (todayIdx > 0) {
+      var tx = x(todayIdx);
+      svgEl.appendChild(el('line', {x1:tx, x2:tx, y1:padT, y2:padT+innerH, class:'today-marker'}));
+      var tl = el('text', {x: tx + 4, y: padT + 11, class:'today-marker-label'});
+      tl.textContent = 'now';
+      svgEl.appendChild(tl);
+    }
+
+    // build path + area, breaking on nulls
+    var linePath = '', areaPath = '', drawing = false;
+    for (var i = 0; i < n; i++) {
+      var v = def.get(series[i]);
+      if (v === null || v === undefined || isNaN(v)) { drawing = false; continue; }
+      var px = x(i), py = y(v);
+      if (!drawing) {
+        linePath += 'M' + px + ',' + py + ' ';
+        areaPath += 'M' + px + ',' + y(0) + ' L' + px + ',' + py + ' ';
+        drawing = true;
+      } else {
+        linePath += 'L' + px + ',' + py + ' ';
+        areaPath += 'L' + px + ',' + py + ' ';
+      }
+      var isLast = (i === n - 1) || (def.get(series[i+1]) === null || def.get(series[i+1]) === undefined || isNaN(def.get(series[i+1])));
+      if (isLast) areaPath += 'L' + px + ',' + y(0) + ' Z ';
+    }
+    svgEl.appendChild(el('path', {d: areaPath, fill: def.color, opacity: 0.14}));
+    svgEl.appendChild(el('path', {d: linePath, fill: 'none', stroke: def.color, 'stroke-width': 2}));
+
+    var hoverLine = el('line', {y1: padT, y2: H - padB, class:'hoverline'});
+    svgEl.appendChild(hoverLine);
+    var hoverDot = el('circle', {r:3.5, fill: def.color, opacity: 0});
+    svgEl.appendChild(hoverDot);
+
+    for (var i = 0; i < n; i++) {
+      (function(i) {
+        var r = series[i];
+        var v = def.get(r);
+        var hit = el('rect', {
+          x: x(i) - (innerW/n)/2, y: padT, width: Math.max(2, innerW/n), height: innerH, fill: 'transparent'
+        });
+        hit.addEventListener('mouseenter', function() {
+          if (v === null || v === undefined || isNaN(v)) { hoverDot.setAttribute('opacity', 0); }
+          else { hoverDot.setAttribute('cx', x(i)); hoverDot.setAttribute('cy', y(v)); hoverDot.setAttribute('opacity', 1); }
+          hoverLine.setAttribute('x1', x(i)); hoverLine.setAttribute('x2', x(i));
+          hoverLine.style.opacity = 1;
+        });
+        hit.addEventListener('mouseleave', function() {
+          hoverDot.setAttribute('opacity', 0);
+          hoverLine.style.opacity = 0;
+          hideTooltip();
+        });
+        hit.addEventListener('mousemove', function(ev) {
+          var rect = svgEl.getBoundingClientRect();
+          showTooltip(ev.clientX, rect.top + window.scrollY,
+            '<div class="t-title">' + dayLabel(r.date) + ', ' + hourLabel(r.hour) + '</div>' +
+            '<div class="t-row"><span class="k">' + def.label + '</span><span>' + (v === null || v === undefined || isNaN(v) ? '—' : def.fmtFull(v)) + '</span></div>');
+        });
+        svgEl.appendChild(hit);
+      })(i);
+    }
+  }
+
+  function renderMetricChart() {
+    drawMetricChart(document.getElementById('metricChart'), hourly, metricDefs[activeMetric]);
+  }
 
   // ---------- day selectors ----------
   var days = daily.map(function(d){ return d.date; });
@@ -560,10 +809,10 @@ tbody tr.zero td { color: var(--text-faint); }
   tableDaySelect.addEventListener('change', function() { selectDay(this.value); });
   daySelect.value = selectedDay; tableDaySelect.value = selectedDay;
 
-  // ---------- hour-of-day bar chart (meta vs google + orders) ----------
+  // ---------- hour-of-day bar chart (meta vs google) ----------
   function renderHourChart() {
     var rows = hourly.filter(function(r) { return r.date === selectedDay; });
-    var W = 1196, H = 220, padL = 54, padR = 18, padT = 16, padB = 30;
+    var W = 1196, H = 200, padL = 54, padR = 18, padT = 16, padB = 30;
     var innerW = W - padL - padR, innerH = H - padT - padB;
     var svgEl = document.getElementById('hourChart');
     svgEl.setAttribute('width', W); svgEl.setAttribute('height', H);
@@ -612,8 +861,6 @@ tbody tr.zero td { color: var(--text-faint); }
         svgEl.appendChild(hit);
       })(i);
     }
-    var legend = el('g', {});
-    svgEl.appendChild(legend);
   }
 
   // ---------- table ----------
@@ -624,9 +871,11 @@ tbody tr.zero td { color: var(--text-faint); }
     { key: 'total_spend', label: 'Total spend', get: function(r){ return fmtINR(r.total_spend); }, raw: function(r){return r.total_spend;} },
     { key: 'orders', label: 'Orders', get: function(r){ return fmtNum(r.orders); }, raw: function(r){return r.orders;} },
     { key: 'total_sales', label: 'Revenue', get: function(r){ return fmtINR(r.total_sales); }, raw: function(r){return r.total_sales;} },
+    { key: 'net_sales', label: 'Net sales', get: function(r){ return fmtINR(r.net_sales); }, raw: function(r){return r.net_sales;} },
     { key: 'sessions', label: 'Sessions', get: function(r){ return fmtNum(r.sessions); }, raw: function(r){return r.sessions;} },
     { key: 'conv_rate', label: 'Conv. rate', get: function(r){ return fmtPct(r.conv_rate); }, raw: function(r){return r.conv_rate;} },
-    { key: 'roas', label: 'ROAS', get: function(r){ return fmtX(r.roas); }, raw: function(r){return r.roas===null?-1:r.roas;} }
+    { key: 'roas', label: 'ROAS', get: function(r){ return fmtX(r.roas); }, raw: function(r){return r.roas===null?-1:r.roas;} },
+    { key: 'asr', label: 'ASR', get: function(r){ return fmtPct(r._hourly_asr); }, raw: function(r){return r._hourly_asr===null?-1:r._hourly_asr;} }
   ];
   var sortKey = 'hour', sortDir = 1;
   var theadRow = document.getElementById('tableHead');
@@ -675,6 +924,7 @@ tbody tr.zero td { color: var(--text-faint); }
   }
 
   renderMain();
+  renderMetricChart();
   renderHourChart();
   renderTable();
 })();
