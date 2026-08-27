@@ -514,8 +514,14 @@ tbody tr.zero td { color: var(--text-faint); }
     return dt.toLocaleDateString('en-US', { month: 'short' });
   };
   var prevDate = function(d) {
-    var dt = new Date(d + 'T00:00:00');
-    dt.setDate(dt.getDate() - 1);
+    // Do the arithmetic entirely in UTC (construct with Date.UTC, step with
+    // setUTCDate) so the result doesn't depend on the viewer's local
+    // timezone. Mixing a local-time constructor with toISOString() (UTC)
+    // silently rolls the date back an extra day for anyone east of UTC
+    // (e.g. IST), which is exactly the "compare is 2 days back, not 1" bug.
+    var parts = d.split('-').map(Number);
+    var dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    dt.setUTCDate(dt.getUTCDate() - 1);
     return dt.toISOString().slice(0, 10);
   };
 
@@ -644,7 +650,7 @@ tbody tr.zero td { color: var(--text-faint); }
         hit.addEventListener('mousemove', function(ev) {
           if (mainPinned) return;
           var rect = svg.getBoundingClientRect();
-          showTooltip(ev.clientX, rect.top + window.scrollY, mainTooltipHtml(p.raw));
+          showTooltip(ev.clientX, rect.top + window.scrollY + y(p.rev), mainTooltipHtml(p.raw));
         });
         hit.addEventListener('click', function(ev) {
           if (mainPinnedBar && mainPinnedBar !== bar) mainPinnedBar.setAttribute('opacity', 0.85);
@@ -653,7 +659,7 @@ tbody tr.zero td { color: var(--text-faint); }
           bar.setAttribute('opacity', 1);
           tooltip.classList.add('pinned');
           var rect = svg.getBoundingClientRect();
-          showTooltip(ev.clientX, rect.top + window.scrollY, mainTooltipHtml(p.raw) + '<div class="t-hint">Double-click outside to release</div>');
+          showTooltip(ev.clientX, rect.top + window.scrollY + y(p.rev), mainTooltipHtml(p.raw) + '<div class="t-hint">Double-click outside to release</div>');
         });
         svg.appendChild(hit);
       })(i);
@@ -823,18 +829,22 @@ tbody tr.zero td { color: var(--text-faint); }
         if (cv !== null && cv !== undefined && !isNaN(cv)) {
           svg.appendChild(svgEl('rect', {x: gx + barW + 3, y: Math.min(y(0), y(cv)), width: barW, height: Math.max(1, Math.abs(y(cv) - y(0))), fill: def.color, opacity: 0.35, rx: 2}));
         }
+        var barTops = [];
+        if (dv !== null && dv !== undefined && !isNaN(dv)) barTops.push(y(dv));
+        if (cv !== null && cv !== undefined && !isNaN(cv)) barTops.push(y(cv));
+        var barTopY = barTops.length ? Math.min.apply(null, barTops) : y(0);
         var hit = svgEl('rect', {x: x(i) - slot/2, y: padT, width: slot, height: innerH, fill: 'transparent', style: 'cursor:pointer'});
         hit.addEventListener('mousemove', function(ev) {
           if (hhPinned) return;
           var rect = svg.getBoundingClientRect();
-          showTooltip(ev.clientX, rect.top + window.scrollY, tipHtml(i, dv, cv, false));
+          showTooltip(ev.clientX, rect.top + window.scrollY + barTopY, tipHtml(i, dv, cv, false));
         });
         hit.addEventListener('mouseleave', function() { if (!hhPinned) hideTooltip(); });
         hit.addEventListener('click', function(ev) {
           hhPinned = true;
           tooltip.classList.add('pinned');
           var rect = svg.getBoundingClientRect();
-          showTooltip(ev.clientX, rect.top + window.scrollY, tipHtml(i, dv, cv, true));
+          showTooltip(ev.clientX, rect.top + window.scrollY + barTopY, tipHtml(i, dv, cv, true));
         });
         svg.appendChild(hit);
       })(i);
@@ -1089,13 +1099,15 @@ tbody tr.zero td { color: var(--text-faint); }
           var bx = gx0 + ci * (barW + 2);
           svg.appendChild(svgEl('rect', {x: bx, y: Math.min(y(0), y(v)), width: barW, height: Math.max(1, Math.abs(y(v)-y(0))), fill: PALETTE[idx % PALETTE.length], opacity: 0.9, rx: 1.5}));
         });
+        var barTops = hitVals.filter(function(hv){ return hv.v !== null && hv.v !== undefined && !isNaN(hv.v); }).map(function(hv){ return y(hv.v); });
+        var barTopY = barTops.length ? Math.min.apply(null, barTops) : y(0);
         var hit = svgEl('rect', {x: x(i)-slot/2, y: padT, width: slot, height: innerH, fill:'transparent'});
         hit.addEventListener('mousemove', function(ev) {
           var rect = svg.getBoundingClientRect();
           var rowsHtml = hitVals.map(function(hv) {
             return '<div class="t-row"><span class="k">' + hv.name + '</span><span>' + (hv.v==null||isNaN(hv.v)?'—':fmtFullFn(hv.v)) + '</span></div>';
           }).join('');
-          showTooltip(ev.clientX, rect.top + window.scrollY, '<div class="t-title">' + hourLabel(i) + '</div>' + rowsHtml);
+          showTooltip(ev.clientX, rect.top + window.scrollY + barTopY, '<div class="t-title">' + hourLabel(i) + '</div>' + rowsHtml);
         });
         hit.addEventListener('mouseleave', hideTooltip);
         svg.appendChild(hit);
