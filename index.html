@@ -236,8 +236,6 @@ svg.chart { display: block; overflow: visible; }
 .line-rev { fill: none; stroke: var(--moss); stroke-width: 2; }
 .dot-spend { fill: var(--clay); }
 .dot-rev { fill: var(--moss); }
-.bar-meta { fill: var(--petrol); opacity: 0.85; }
-.bar-google { fill: var(--brass); opacity: 0.9; }
 .today-marker { stroke: var(--text-faint); stroke-width: 1; stroke-dasharray: 3 3; }
 .today-marker-label { fill: var(--text-faint); font-size: 10px; }
 
@@ -340,7 +338,6 @@ tbody tr.zero td { color: var(--text-faint); }
       <nav class="tabs" id="tabsNav" role="tablist" aria-label="Dashboard sections">
         <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" id="tabbtn-overview" aria-controls="tab-overview">Overview</button>
         <button class="tab-btn" data-tab="hourbyhour" role="tab" aria-selected="false" id="tabbtn-hourbyhour" aria-controls="tab-hourbyhour">Hour by Hour</button>
-        <button class="tab-btn" data-tab="daybreakdown" role="tab" aria-selected="false" id="tabbtn-daybreakdown" aria-controls="tab-daybreakdown">Day Breakdown</button>
         <button class="tab-btn" data-tab="hourlydetail" role="tab" aria-selected="false" id="tabbtn-hourlydetail" aria-controls="tab-hourlydetail">Hourly Detail</button>
         <button class="tab-btn" data-tab="campaigns" role="tab" aria-selected="false" id="tabbtn-campaigns" aria-controls="tab-campaigns">Campaigns</button>
       </nav>
@@ -399,22 +396,6 @@ tbody tr.zero td { color: var(--text-faint); }
             <svg id="metricChart" class="chart" width="1196" height="320"></svg>
           </div>
           <div class="compare-summary" id="compareSummary"></div>
-        </section>
-      </section>
-
-      <!-- ============ DAY BREAKDOWN ============ -->
-      <section class="tab-panel" id="tab-daybreakdown" role="tabpanel" aria-labelledby="tabbtn-daybreakdown">
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <div class="panel-title">Day breakdown</div>
-              <div class="panel-sub">Meta vs. Google spend, one day at a time.</div>
-            </div>
-            <select class="daysel" id="daySelect"></select>
-          </div>
-          <div class="chart-scroll">
-            <svg id="hourChart" class="chart" width="1196" height="280"></svg>
-          </div>
         </section>
       </section>
 
@@ -736,19 +717,39 @@ tbody tr.zero td { color: var(--text-faint); }
   });
   hhDateSelect.value = hhDate; hhCompareSelect.value = hhCompare;
 
+  // Neither picker may land on the day currently chosen in the other one —
+  // disable that option so the same day can't be compared against itself.
+  function syncSelectExclusions() {
+    Array.prototype.forEach.call(hhDateSelect.options, function(opt) { opt.disabled = (opt.value === hhCompare); });
+    Array.prototype.forEach.call(hhCompareSelect.options, function(opt) { opt.disabled = (opt.value === hhDate); });
+  }
+  syncSelectExclusions();
+
   hhDateSelect.addEventListener('change', function() {
     hhDate = this.value;
     if (!compareManuallySet) {
       var pd = prevDate(hhDate);
-      hhCompare = days.indexOf(pd) >= 0 ? pd : hhCompare;
+      hhCompare = (days.indexOf(pd) >= 0 && pd !== hhDate) ? pd : hhCompare;
       hhCompareSelect.value = hhCompare;
     }
+    syncSelectExclusions();
     renderMetricChart();
   });
   hhCompareSelect.addEventListener('change', function() {
     hhCompare = this.value;
     compareManuallySet = true;
+    syncSelectExclusions();
     renderMetricChart();
+  });
+
+  // ---------- Hour by Hour popup: same hover/click-to-hold/double-click-to-release rules as Overview ----------
+  var hhPinned = false;
+  document.addEventListener('dblclick', function(ev) {
+    if (hhPinned && !tooltip.contains(ev.target)) {
+      hhPinned = false;
+      tooltip.classList.remove('pinned');
+      hideTooltip();
+    }
   });
 
   var metricSelectEl = document.getElementById('metricSelect');
@@ -805,6 +806,13 @@ tbody tr.zero td { color: var(--text-faint); }
       svg.appendChild(lx);
     }
 
+    function tipHtml(i, dv, cv, withHint) {
+      return '<div class="t-title">' + hourLabel(i) + '</div>' +
+        '<div class="t-row"><span class="k">' + dayLabel(hhDate) + '</span><span>' + (dv==null||isNaN(dv)?'—':def.fmtFull(dv)) + '</span></div>' +
+        '<div class="t-row"><span class="k">' + dayLabel(hhCompare) + '</span><span>' + (cv==null||isNaN(cv)?'—':def.fmtFull(cv)) + '</span></div>' +
+        (withHint ? '<div class="t-hint">Double-click outside to release</div>' : '');
+    }
+
     for (var i = 0; i < n; i++) {
       (function(i) {
         var dv = dateVals[i], cv = compVals[i];
@@ -815,21 +823,28 @@ tbody tr.zero td { color: var(--text-faint); }
         if (cv !== null && cv !== undefined && !isNaN(cv)) {
           svg.appendChild(svgEl('rect', {x: gx + barW + 3, y: Math.min(y(0), y(cv)), width: barW, height: Math.max(1, Math.abs(y(cv) - y(0))), fill: def.color, opacity: 0.35, rx: 2}));
         }
-        var hit = svgEl('rect', {x: x(i) - slot/2, y: padT, width: slot, height: innerH, fill: 'transparent'});
+        var hit = svgEl('rect', {x: x(i) - slot/2, y: padT, width: slot, height: innerH, fill: 'transparent', style: 'cursor:pointer'});
         hit.addEventListener('mousemove', function(ev) {
+          if (hhPinned) return;
           var rect = svg.getBoundingClientRect();
-          showTooltip(ev.clientX, rect.top + window.scrollY,
-            '<div class="t-title">' + hourLabel(i) + '</div>' +
-            '<div class="t-row"><span class="k">' + dayLabel(hhDate) + '</span><span>' + (dv==null||isNaN(dv)?'—':def.fmtFull(dv)) + '</span></div>' +
-            '<div class="t-row"><span class="k">' + dayLabel(hhCompare) + '</span><span>' + (cv==null||isNaN(cv)?'—':def.fmtFull(cv)) + '</span></div>');
+          showTooltip(ev.clientX, rect.top + window.scrollY, tipHtml(i, dv, cv, false));
         });
-        hit.addEventListener('mouseleave', hideTooltip);
+        hit.addEventListener('mouseleave', function() { if (!hhPinned) hideTooltip(); });
+        hit.addEventListener('click', function(ev) {
+          hhPinned = true;
+          tooltip.classList.add('pinned');
+          var rect = svg.getBoundingClientRect();
+          showTooltip(ev.clientX, rect.top + window.scrollY, tipHtml(i, dv, cv, true));
+        });
         svg.appendChild(hit);
       })(i);
     }
   }
 
   function renderMetricChart() {
+    hhPinned = false;
+    tooltip.classList.remove('pinned');
+    hideTooltip();
     var def = metricDefs[activeMetric];
     var dateRows = hourlyByDate[hhDate] || [];
     var compareRows = hourlyByDate[hhCompare] || [];
@@ -848,73 +863,9 @@ tbody tr.zero td { color: var(--text-faint); }
     var deltaSign = delta === null ? '' : (delta >= 0 ? '+' : '');
     var summary = document.getElementById('compareSummary');
     summary.innerHTML =
-      '<div class="cs-item"><div class="cs-label">' + dayLabel(hhDate) + ' total</div><div class="cs-value">' + def.fmt(dateSum) + '</div></div>' +
-      '<div class="cs-item"><div class="cs-label">' + dayLabel(hhCompare) + ' total</div><div class="cs-value">' + def.fmt(compSum) +
-      (delta === null ? '' : '<span class="cs-delta ' + deltaCls + '">' + deltaSign + delta.toFixed(1) + '%</span>') + '</div></div>';
-  }
-
-  // ============================================================
-  // DAY BREAKDOWN — meta vs google stacked bars, one day
-  // ============================================================
-  var daySelect = document.getElementById('daySelect');
-  days.forEach(function(d) {
-    var opt = document.createElement('option');
-    opt.value = d; opt.textContent = dayLabel(d);
-    daySelect.appendChild(opt);
-  });
-  var selectedBreakdownDay = days[days.length - 1];
-  daySelect.value = selectedBreakdownDay;
-  daySelect.addEventListener('change', function() { selectedBreakdownDay = this.value; renderHourChart(); });
-
-  function renderHourChart() {
-    var rows = hourlyByDate[selectedBreakdownDay] || [];
-    var W = 1196, H = 280, padL = 54, padR = 18, padT = 16, padB = 30;
-    var innerW = W - padL - padR, innerH = H - padT - padB;
-    var svg = document.getElementById('hourChart');
-    svg.setAttribute('width', W); svg.setAttribute('height', H);
-    svg.innerHTML = '';
-    var n = rows.length;
-    var maxSpend = Math.max.apply(null, rows.map(function(r){ return r.meta_spend + r.google_spend; }).concat([1])) * 1.15;
-    var bw = (innerW / n) * 0.62;
-    var slot = innerW / n;
-    var x = function(i) { return padL + i*slot + slot/2; };
-    var y = function(v) { return padT + innerH - (v/maxSpend)*innerH; };
-
-    for (var t = 0; t <= 4; t++) {
-      var val = (maxSpend/4)*t, gy = y(val);
-      svg.appendChild(svgEl('line', {x1:padL, x2:W-padR, y1:gy, y2:gy, class:'gridline'}));
-      var lbl = svgEl('text', {x: padL-8, y: gy+3, class:'axis-label', 'text-anchor':'end'});
-      lbl.textContent = fmtINR(val, {compact:true});
-      svg.appendChild(lbl);
-    }
-    for (var i = 0; i < n; i += 2) {
-      var lx = svgEl('text', {x: x(i), y: H-8, class:'axis-label', 'text-anchor':'middle'});
-      lx.textContent = hourLabel(rows[i].hour);
-      svg.appendChild(lx);
-    }
-
-    for (var i = 0; i < n; i++) {
-      (function(i) {
-        var r = rows[i];
-        var yM = y(r.meta_spend), yG = y(r.meta_spend + r.google_spend);
-        var bx = x(i) - bw/2;
-        var barM = svgEl('rect', {x:bx, y:yM, width:bw, height: (padT+innerH)-yM, class:'bar-meta'});
-        var barG = svgEl('rect', {x:bx, y:yG, width:bw, height: Math.max(0, yM-yG), class:'bar-google'});
-        svg.appendChild(barM); svg.appendChild(barG);
-        var hit = svgEl('rect', {x:bx-2, y:padT, width:bw+4, height:innerH, fill:'transparent'});
-        hit.addEventListener('mousemove', function(ev) {
-          var rect = svg.getBoundingClientRect();
-          showTooltip(ev.clientX, rect.top + window.scrollY,
-            '<div class="t-title">' + dayLabel(r.date) + ', ' + hourLabel(r.hour) + '</div>' +
-            '<div class="t-row"><span class="k">Meta</span><span>' + fmtINR(r.meta_spend) + '</span></div>' +
-            '<div class="t-row"><span class="k">Google</span><span>' + fmtINR(r.google_spend) + '</span></div>' +
-            '<div class="t-row"><span class="k">Orders</span><span>' + fmtNum(r.orders) + '</span></div>' +
-            '<div class="t-row"><span class="k">Revenue</span><span>' + fmtINR(r.total_sales) + '</span></div>');
-        });
-        hit.addEventListener('mouseleave', hideTooltip);
-        svg.appendChild(hit);
-      })(i);
-    }
+      '<div class="cs-item"><div class="cs-label">' + dayLabel(hhDate) + ' total</div><div class="cs-value">' + def.fmt(dateSum) +
+      (delta === null ? '' : '<span class="cs-delta ' + deltaCls + '">' + deltaSign + delta.toFixed(1) + '%</span>') + '</div></div>' +
+      '<div class="cs-item"><div class="cs-label">' + dayLabel(hhCompare) + ' total</div><div class="cs-value">' + def.fmt(compSum) + '</div></div>';
   }
 
   // ============================================================
@@ -1155,7 +1106,6 @@ tbody tr.zero td { color: var(--text-faint); }
   // ---------- init ----------
   drawMainChart();
   renderMetricChart();
-  renderHourChart();
   renderTable();
   (function initCampaigns() {
     var list = campaignsData.meta || [];
