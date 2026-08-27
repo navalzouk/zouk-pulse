@@ -150,18 +150,18 @@ main.content { flex: 1 1 auto; overflow-y: auto; position: relative; }
 
 /* ---------- KPI row ---------- */
 .kpis {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
   background: var(--border); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: hidden; margin-bottom: 24px;
 }
 .kpi {
-  background: var(--surface); padding: 16px 16px 14px; position: relative;
+  background: var(--surface); padding: 20px 22px 18px; position: relative;
 }
 .kpi .label {
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--text-faint); font-weight: 600; margin-bottom: 8px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-faint); font-weight: 600; margin-bottom: 9px;
 }
-.kpi-value { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+.kpi-value { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
 .kpi .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
 .kpi.accent-spend .kpi-value { color: var(--clay); }
 .kpi.accent-rev .kpi-value { color: var(--moss); }
@@ -377,11 +377,10 @@ tbody tr.zero td { color: var(--text-faint); }
         <section class="panel">
           <div class="panel-head">
             <div>
-              <div class="panel-title">Spend vs. revenue</div>
-              <div class="panel-sub">Daily totals across the full range &mdash; click a point to pin its numbers, double-click anywhere outside the card to release it.</div>
+              <div class="panel-title">Revenue trend</div>
+              <div class="panel-sub">Daily net sales across the full range &mdash; click a bar to pin its numbers, double-click anywhere outside the card to release it.</div>
             </div>
             <div class="legend">
-              <span><i style="background:var(--clay)"></i>Ad spend</span>
               <span><i style="background:var(--moss)"></i>Revenue</span>
             </div>
           </div>
@@ -393,7 +392,7 @@ tbody tr.zero td { color: var(--text-faint); }
             <div class="pin-date" id="pinDate"></div>
             <div class="pin-row"><span class="k">Revenue</span><span class="v" id="pinRevenue"></span></div>
             <div class="pin-row"><span class="k">Meta spend</span><span class="v" id="pinMeta"></span></div>
-            <div class="pin-row"><span class="k">ASR</span><span class="v" id="pinAsr"></span></div>
+            <div class="pin-row"><span class="k">Cumulative ASR</span><span class="v" id="pinAsr"></span></div>
             <div class="pin-hint">Double-click outside to release</div>
           </div>
         </section>
@@ -585,14 +584,11 @@ tbody tr.zero td { color: var(--text-faint); }
   });
 
   // ---------- KPIs ----------
+  var gtAsr = (gt.total_spend > 0 && gt.net_sales > 0) ? (gt.total_spend / gt.net_sales) * 100 : null;
   var kpiDefs = [
-    { label: 'Total ad spend', val: fmtINR(gt.total_spend, {compact:true}), sub: 'Meta ' + fmtINR(gt.meta_spend, {compact:true}) + ' + Google ' + fmtINR(gt.google_spend, {compact:true}), cls: 'accent-spend' },
-    { label: 'Revenue', val: fmtINR(gt.total_sales, {compact:true}), sub: fmtNum(gt.orders) + ' orders', cls: 'accent-rev' },
-    { label: 'Blended ROAS', val: fmtX(gt.roas), sub: 'revenue ÷ spend', cls: 'accent-roas' },
-    { label: 'Orders', val: fmtNum(gt.orders), sub: fmtNum(gt.quantity_ordered) + ' units' },
-    { label: 'Sessions', val: fmtINR(gt.sessions, {compact:true}).replace('₹',''), sub: fmtNum(gt.online_store_visitors) + ' visitors' },
-    { label: 'Conv. rate', val: fmtPct(gt.conv_rate), sub: 'orders ÷ sessions' },
-    { label: 'Cost / order', val: fmtINR(gt.cost_per_order), sub: 'blended spend ÷ orders' }
+    { label: 'Meta spend', val: fmtINR(gt.meta_spend, {compact:true}), sub: 'Aug 1 – 27 total', cls: 'accent-spend' },
+    { label: 'Revenue', val: fmtINR(gt.net_sales, {compact:true}), sub: 'net sales, ' + fmtNum(gt.orders) + ' orders', cls: 'accent-rev' },
+    { label: 'ASR', val: fmtPct(gtAsr), sub: '(Meta + Google spend) ÷ net sales', cls: 'accent-roas' }
   ];
   var kpiRow = document.getElementById('kpiRow');
   kpiDefs.forEach(function(k) {
@@ -618,21 +614,30 @@ tbody tr.zero td { color: var(--text-faint); }
     return e;
   }
 
+  // ---------- cumulative ASR to date (day-granularity, whole-dataset running total) ----------
+  (function() {
+    var cumSpendAll = 0, cumNetAll = 0;
+    daily.forEach(function(r) {
+      cumSpendAll += r.total_spend; cumNetAll += r.net_sales;
+      r._cum_asr_to_date = cumNetAll > 0 ? (cumSpendAll / cumNetAll) * 100 : null;
+    });
+  })();
+
   // ============================================================
-  // OVERVIEW — daily spend vs revenue, with click-to-pin
+  // OVERVIEW — daily revenue trend (bars), with click-to-pin
   // ============================================================
   function drawMainChart() {
-    var points = daily.map(function(r) { return { spend: r.total_spend, rev: r.total_sales, raw: r }; });
+    var points = daily.map(function(r) { return { rev: r.net_sales, raw: r }; });
     var svg = document.getElementById('mainChart');
     var W = 1196, H = 300, padL = 54, padR = 18, padT = 16, padB = 30;
     var innerW = W - padL - padR, innerH = H - padT - padB;
     svg.setAttribute('width', W); svg.setAttribute('height', H);
     svg.innerHTML = '';
     var n = points.length;
-    var maxSpend = Math.max.apply(null, points.map(function(p){return p.spend;}).concat([1]));
-    var maxRev = Math.max.apply(null, points.map(function(p){return p.rev;}).concat([1]));
-    var maxY = Math.max(maxSpend, maxRev) * 1.12;
-    var x = function(i) { return padL + (n === 1 ? innerW/2 : (i/(n-1)) * innerW); };
+    var maxY = Math.max.apply(null, points.map(function(p){return p.rev;}).concat([1])) * 1.12;
+    var slot = innerW / n;
+    var barW = slot * 0.62;
+    var x = function(i) { return padL + i * slot + slot / 2; };
     var y = function(v) { return padT + innerH - (v/maxY)*innerH; };
 
     for (var t = 0; t <= 4; t++) {
@@ -643,65 +648,31 @@ tbody tr.zero td { color: var(--text-faint); }
       svg.appendChild(lbl);
     }
 
-    var xLabelEvery = Math.max(1, Math.ceil(n / 14));
-    var tickIdxs = [];
-    for (var i = 0; i < n; i += xLabelEvery) tickIdxs.push(i);
-    if (tickIdxs[tickIdxs.length - 1] !== n - 1) tickIdxs.push(n - 1);
-    tickIdxs.forEach(function(i, j) {
-      var isLast = j === tickIdxs.length - 1;
+    for (var i = 0; i < n; i++) {
+      var isLast = i === n - 1;
       var lx = svgEl('text', {x: x(i), y: H - 8, class:'axis-label', 'text-anchor':'middle'});
       lx.textContent = isLast ? (dayNum(points[i].raw.date) + ' ' + monthShort(points[i].raw.date)) : dayNum(points[i].raw.date);
       svg.appendChild(lx);
-    });
-
-    function pathFor(key) {
-      var d = '';
-      for (var i = 0; i < n; i++) d += (i === 0 ? 'M' : 'L') + x(i) + ',' + y(points[i][key]) + ' ';
-      return d;
     }
-    function areaFor(key) {
-      var d = 'M' + x(0) + ',' + y(0) + ' ';
-      for (var i = 0; i < n; i++) d += 'L' + x(i) + ',' + y(points[i][key]) + ' ';
-      d += 'L' + x(n-1) + ',' + y(0) + ' Z';
-      return d;
-    }
-    svg.appendChild(svgEl('path', {d: areaFor('spend'), class:'area-spend'}));
-    svg.appendChild(svgEl('path', {d: areaFor('rev'), class:'area-rev'}));
-    svg.appendChild(svgEl('path', {d: pathFor('spend'), class:'line-spend'}));
-    svg.appendChild(svgEl('path', {d: pathFor('rev'), class:'line-rev'}));
-
-    var hoverLine = svgEl('line', {y1: padT, y2: H - padB, class:'hoverline'});
-    svg.appendChild(hoverLine);
 
     for (var i = 0; i < n; i++) {
       (function(i) {
         var p = points[i];
-        var dotS = svgEl('circle', {cx:x(i), cy:y(p.spend), r:3, class:'dot-spend', opacity:0});
-        var dotR = svgEl('circle', {cx:x(i), cy:y(p.rev), r:3, class:'dot-rev', opacity:0});
-        svg.appendChild(dotS); svg.appendChild(dotR);
+        var bx = x(i) - barW/2;
+        var bar = svgEl('rect', {x:bx, y:y(p.rev), width:barW, height: Math.max(1, (padT+innerH)-y(p.rev)), fill:'var(--moss)', opacity:0.85, rx:2});
+        svg.appendChild(bar);
         var hit = svgEl('rect', {
-          x: x(i) - (innerW/n)/2, y: padT, width: Math.max(4, innerW/n), height: innerH,
+          x: x(i) - slot/2, y: padT, width: slot, height: innerH,
           fill: 'transparent', style: 'cursor:pointer'
         });
-        hit.addEventListener('mouseenter', function() {
-          dotS.setAttribute('opacity', 1); dotR.setAttribute('opacity', 1);
-          hoverLine.setAttribute('x1', x(i)); hoverLine.setAttribute('x2', x(i));
-          hoverLine.style.opacity = 1;
-        });
-        hit.addEventListener('mouseleave', function() {
-          dotS.setAttribute('opacity', 0); dotR.setAttribute('opacity', 0);
-          hoverLine.style.opacity = 0;
-          hideTooltip();
-        });
+        hit.addEventListener('mouseenter', function() { bar.setAttribute('opacity', 1); });
+        hit.addEventListener('mouseleave', function() { bar.setAttribute('opacity', 0.85); hideTooltip(); });
         hit.addEventListener('mousemove', function(ev) {
           var rect = svg.getBoundingClientRect();
           var r = p.raw;
           showTooltip(ev.clientX, rect.top + window.scrollY,
             '<div class="t-title">' + dayLabel(r.date) + '</div>' +
-            '<div class="t-row"><span class="k">Spend</span><span>' + fmtINR(r.total_spend) + '</span></div>' +
-            '<div class="t-row"><span class="k">Revenue</span><span>' + fmtINR(r.total_sales) + '</span></div>' +
-            '<div class="t-row"><span class="k">ROAS</span><span>' + fmtX(r.roas) + '</span></div>' +
-            '<div class="t-row"><span class="k">Orders</span><span>' + fmtNum(r.orders) + '</span></div>');
+            '<div class="t-row"><span class="k">Revenue</span><span>' + fmtINR(r.net_sales) + '</span></div>');
         });
         hit.addEventListener('click', function() { pinDay(p.raw); });
         svg.appendChild(hit);
@@ -711,11 +682,10 @@ tbody tr.zero td { color: var(--text-faint); }
 
   var pinCard = document.getElementById('pinCard');
   function pinDay(row) {
-    var asr = (row.total_spend > 0 && row.net_sales > 0) ? (row.total_spend / row.net_sales) * 100 : null;
     document.getElementById('pinDate').textContent = dayLabel(row.date);
     document.getElementById('pinRevenue').textContent = fmtINR(row.net_sales);
     document.getElementById('pinMeta').textContent = fmtINR(row.meta_spend);
-    document.getElementById('pinAsr').textContent = fmtPct(asr);
+    document.getElementById('pinAsr').textContent = fmtPct(row._cum_asr_to_date);
     pinCard.style.display = 'block';
   }
   document.getElementById('pinClose').addEventListener('click', function() { pinCard.style.display = 'none'; });
