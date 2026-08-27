@@ -251,23 +251,8 @@ svg.chart { display: block; overflow: visible; }
 .tooltip .t-title { font-weight: 700; margin-bottom: 3px; color: var(--paper); }
 .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; }
 .tooltip .t-row .k { opacity: 0.72; }
-
-/* ---------- pinned comparison card ---------- */
-.pin-card {
-  position: absolute; top: 18px; right: 22px; width: 200px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
-  padding: 12px 14px 13px; z-index: 8;
-}
-.pin-card .pin-date { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
-.pin-card .pin-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; padding: 3px 0; }
-.pin-card .pin-row .k { color: var(--text-dim); }
-.pin-card .pin-row .v { font-family: "IBM Plex Mono", monospace; font-weight: 600; color: var(--text); }
-.pin-close {
-  position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; border: none; background: none;
-  color: var(--text-faint); cursor: pointer; font-size: 15px; line-height: 1; border-radius: 4px; padding: 0;
-}
-.pin-close:hover { background: var(--surface-2); color: var(--text); }
-.pin-hint { font-size: 10.5px; color: var(--text-faint); margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
+.tooltip .t-hint { margin-top: 6px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.18); font-size: 10px; opacity: 0.65; white-space: normal; max-width: 160px; }
+.tooltip.pinned { pointer-events: auto; }
 
 /* ---------- compare summary strip ---------- */
 .compare-summary {
@@ -338,7 +323,6 @@ tbody tr.zero td { color: var(--text-faint); }
   nav.tabs { width: 100%; }
   .tab-btn.active::after { bottom: -11px; }
   .range-note { text-align: left; }
-  .pin-card { position: static; width: auto; margin-bottom: 14px; }
 }
 </style>
 
@@ -378,7 +362,7 @@ tbody tr.zero td { color: var(--text-faint); }
           <div class="panel-head">
             <div>
               <div class="panel-title">Revenue trend</div>
-              <div class="panel-sub">Daily net sales across the full range &mdash; click a bar to pin its numbers, double-click anywhere outside the card to release it.</div>
+              <div class="panel-sub">Daily net sales across the full range &mdash; hover a bar for its numbers, click to hold the popup in place, double-click anywhere outside it to release.</div>
             </div>
             <div class="legend">
               <span><i style="background:var(--moss)"></i>Revenue</span>
@@ -386,14 +370,6 @@ tbody tr.zero td { color: var(--text-faint); }
           </div>
           <div class="chart-scroll">
             <svg id="mainChart" class="chart" width="1196" height="300"></svg>
-          </div>
-          <div class="pin-card" id="pinCard" style="display:none;">
-            <button class="pin-close" id="pinClose" aria-label="Close">&times;</button>
-            <div class="pin-date" id="pinDate"></div>
-            <div class="pin-row"><span class="k">Revenue</span><span class="v" id="pinRevenue"></span></div>
-            <div class="pin-row"><span class="k">Meta spend</span><span class="v" id="pinMeta"></span></div>
-            <div class="pin-row"><span class="k">Cumulative ASR</span><span class="v" id="pinAsr"></span></div>
-            <div class="pin-hint">Double-click outside to release</div>
           </div>
         </section>
       </section>
@@ -624,8 +600,25 @@ tbody tr.zero td { color: var(--text-faint); }
   })();
 
   // ============================================================
-  // OVERVIEW — daily revenue trend (bars), with click-to-pin
+  // OVERVIEW — daily revenue trend (bars), with hover + click-to-hold popup
   // ============================================================
+  var mainPinned = false;
+  var mainPinnedBar = null;
+  function mainTooltipHtml(r) {
+    return '<div class="t-title">' + dayLabel(r.date) + '</div>' +
+      '<div class="t-row"><span class="k">Revenue</span><span>' + fmtINR(r.net_sales) + '</span></div>' +
+      '<div class="t-row"><span class="k">Meta spend</span><span>' + fmtINR(r.meta_spend) + '</span></div>' +
+      '<div class="t-row"><span class="k">Cumulative ASR</span><span>' + fmtPct(r._cum_asr_to_date) + '</span></div>';
+  }
+  document.addEventListener('dblclick', function(ev) {
+    if (mainPinned && !tooltip.contains(ev.target)) {
+      mainPinned = false;
+      tooltip.classList.remove('pinned');
+      hideTooltip();
+      if (mainPinnedBar) { mainPinnedBar.setAttribute('opacity', 0.85); mainPinnedBar = null; }
+    }
+  });
+
   function drawMainChart() {
     var points = daily.map(function(r) { return { rev: r.net_sales, raw: r }; });
     var svg = document.getElementById('mainChart');
@@ -665,33 +658,26 @@ tbody tr.zero td { color: var(--text-faint); }
           x: x(i) - slot/2, y: padT, width: slot, height: innerH,
           fill: 'transparent', style: 'cursor:pointer'
         });
-        hit.addEventListener('mouseenter', function() { bar.setAttribute('opacity', 1); });
-        hit.addEventListener('mouseleave', function() { bar.setAttribute('opacity', 0.85); hideTooltip(); });
+        hit.addEventListener('mouseenter', function() { if (!mainPinned) bar.setAttribute('opacity', 1); });
+        hit.addEventListener('mouseleave', function() { if (!mainPinned) { bar.setAttribute('opacity', 0.85); hideTooltip(); } });
         hit.addEventListener('mousemove', function(ev) {
+          if (mainPinned) return;
           var rect = svg.getBoundingClientRect();
-          var r = p.raw;
-          showTooltip(ev.clientX, rect.top + window.scrollY,
-            '<div class="t-title">' + dayLabel(r.date) + '</div>' +
-            '<div class="t-row"><span class="k">Revenue</span><span>' + fmtINR(r.net_sales) + '</span></div>');
+          showTooltip(ev.clientX, rect.top + window.scrollY, mainTooltipHtml(p.raw));
         });
-        hit.addEventListener('click', function() { pinDay(p.raw); });
+        hit.addEventListener('click', function(ev) {
+          if (mainPinnedBar && mainPinnedBar !== bar) mainPinnedBar.setAttribute('opacity', 0.85);
+          mainPinned = true;
+          mainPinnedBar = bar;
+          bar.setAttribute('opacity', 1);
+          tooltip.classList.add('pinned');
+          var rect = svg.getBoundingClientRect();
+          showTooltip(ev.clientX, rect.top + window.scrollY, mainTooltipHtml(p.raw) + '<div class="t-hint">Double-click outside to release</div>');
+        });
         svg.appendChild(hit);
       })(i);
     }
   }
-
-  var pinCard = document.getElementById('pinCard');
-  function pinDay(row) {
-    document.getElementById('pinDate').textContent = dayLabel(row.date);
-    document.getElementById('pinRevenue').textContent = fmtINR(row.net_sales);
-    document.getElementById('pinMeta').textContent = fmtINR(row.meta_spend);
-    document.getElementById('pinAsr').textContent = fmtPct(row._cum_asr_to_date);
-    pinCard.style.display = 'block';
-  }
-  document.getElementById('pinClose').addEventListener('click', function() { pinCard.style.display = 'none'; });
-  document.addEventListener('dblclick', function(ev) {
-    if (pinCard.style.display !== 'none' && !pinCard.contains(ev.target)) pinCard.style.display = 'none';
-  });
 
   // ============================================================
   // Precompute per-hour derived metrics
