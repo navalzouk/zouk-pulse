@@ -343,9 +343,9 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
         <span class="tag">Meta + Google + Shopify</span>
       </div>
       <nav class="tabs" id="tabsNav" role="tablist" aria-label="Dashboard sections">
-        <button class="tab-btn active" data-tab="hourbyhour" role="tab" aria-selected="true" id="tabbtn-hourbyhour" aria-controls="tab-hourbyhour">Hour by Hour</button>
-        <button class="tab-btn" data-tab="overview" role="tab" aria-selected="false" id="tabbtn-overview" aria-controls="tab-overview">Overview</button>
+        <button class="tab-btn active" data-tab="hourbyhour" role="tab" aria-selected="true" id="tabbtn-hourbyhour" aria-controls="tab-hourbyhour">Hourly Trend</button>
         <button class="tab-btn" data-tab="hourlydetail" role="tab" aria-selected="false" id="tabbtn-hourlydetail" aria-controls="tab-hourlydetail">Hourly Detail</button>
+        <button class="tab-btn" data-tab="overview" role="tab" aria-selected="false" id="tabbtn-overview" aria-controls="tab-overview">Daily Trend</button>
         <button class="tab-btn" data-tab="campaigns" role="tab" aria-selected="false" id="tabbtn-campaigns" aria-controls="tab-campaigns">Campaigns</button>
       </nav>
       <div class="range-note">
@@ -358,7 +358,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
   <main class="content" id="content">
     <div class="content-inner">
 
-      <!-- ============ HOUR BY HOUR ============ -->
+      <!-- ============ HOURLY TREND (formerly Hour by Hour) ============ -->
       <section class="tab-panel active" id="tab-hourbyhour" role="tabpanel" aria-labelledby="tabbtn-hourbyhour">
         <section class="panel">
           <div class="panel-head">
@@ -386,26 +386,6 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
         </section>
       </section>
 
-      <!-- ============ OVERVIEW ============ -->
-      <section class="tab-panel" id="tab-overview" role="tabpanel" aria-labelledby="tabbtn-overview">
-        <div class="kpis" id="kpiRow"></div>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <div class="panel-title">Revenue trend</div>
-              <div class="panel-sub">Daily net sales across the full range &mdash; hover a bar for its numbers, click to hold the popup in place, double-click anywhere outside it to release.</div>
-            </div>
-            <div class="legend">
-              <span><i style="background:var(--moss)"></i>Revenue</span>
-            </div>
-          </div>
-          <div class="chart-scroll">
-            <svg id="mainChart" class="chart" width="1196" height="300"></svg>
-          </div>
-        </section>
-      </section>
-
       <!-- ============ HOURLY DETAIL ============ -->
       <section class="tab-panel" id="tab-hourlydetail" role="tabpanel" aria-labelledby="tabbtn-hourlydetail">
         <section class="panel">
@@ -425,7 +405,27 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
             </div>
           </div>
           <div class="foot-note">
-            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend, Revenue and ASR compare each hour to the <i>same</i> hour on the previous day (apples to apples), not the hour before it. "Till Day" is the selected day's cumulative total so far, compared the same way against the previous day's total through that same point. Rows with no spend and no orders are dimmed.
+            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales (=Revenue) for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend, Revenue and ASR compare each hour to the <i>same</i> hour on the previous day (apples to apples), not the hour before it. "Till Day" is the selected day's cumulative total so far, compared the same way against the previous day's total through that same point. Rows with no spend and no orders are dimmed.
+          </div>
+        </section>
+      </section>
+
+      <!-- ============ DAILY TREND (formerly Overview) ============ -->
+      <section class="tab-panel" id="tab-overview" role="tabpanel" aria-labelledby="tabbtn-overview">
+        <div class="kpis" id="kpiRow"></div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Revenue trend</div>
+              <div class="panel-sub">Daily net sales across the full range &mdash; hover a bar for its numbers, click to hold the popup in place, double-click anywhere outside it to release.</div>
+            </div>
+            <div class="legend">
+              <span><i style="background:var(--moss)"></i>Revenue</span>
+            </div>
+          </div>
+          <div class="chart-scroll">
+            <svg id="mainChart" class="chart" width="1196" height="300"></svg>
           </div>
         </section>
       </section>
@@ -436,7 +436,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
           <div class="panel-head">
             <div>
               <div class="panel-title">Campaign explorer</div>
-              <div class="panel-sub">Pick a channel, up to 3 campaigns, and a day &mdash; compare their hour-by-hour performance.</div>
+              <div class="panel-sub">Pick a channel, up to 3 campaigns, and a day &mdash; compare their hour-by-hour performance. Defaults to that day's single top-spending campaign.</div>
             </div>
             <div class="controls-row">
               <div class="control-group">
@@ -717,7 +717,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
   daily.forEach(function(r) { dailyByDate[r.date] = r; });
 
   var metricDefs = {
-    net_sales:     { label: 'Net Sales',      color: 'var(--moss)',   get: function(r){ return r.net_sales; },   fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR,
+    net_sales:     { label: 'Revenue',        color: 'var(--moss)',   get: function(r){ return r.net_sales; },   fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR,
                      daySummary: function(d){ return dailyByDate[d].net_sales; } },
     meta_spend:    { label: 'Meta Spend',     color: 'var(--petrol)', get: function(r){ return r.meta_spend; },  fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR,
                      daySummary: function(d){ return dailyByDate[d].meta_spend; } },
@@ -986,8 +986,10 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     { key: 'meta_spend', label: 'Meta', get: function(r){ return fmtINR(r.meta_spend) + fmtDeltaChip(r._deltaMeta); }, raw: function(r){return r.meta_spend;} },
     { key: 'google_spend', label: 'Google', get: function(r){ return fmtINR(r.google_spend); }, raw: function(r){return r.google_spend;} },
     { key: 'total_spend', label: 'Total spend', get: function(r){ return fmtINR(r.total_spend) + fmtDeltaChip(r._deltaSpend); }, raw: function(r){return r.total_spend;} },
-    { key: 'total_sales', label: 'Revenue', get: function(r){ return fmtINR(r.total_sales) + fmtDeltaChip(r._deltaRevenue); }, raw: function(r){return r.total_sales;} },
-    { key: 'net_sales', label: 'Net sales', get: function(r){ return fmtINR(r.net_sales); }, raw: function(r){return r.net_sales;} },
+    // Revenue = net sales throughout this dashboard (never gross total_sales) -- there is
+    // deliberately no separate "Net sales" column here, since that would just be the same
+    // number twice under two names.
+    { key: 'net_sales', label: 'Revenue', get: function(r){ return fmtINR(r.net_sales) + fmtDeltaChip(r._deltaRevenue); }, raw: function(r){return r.net_sales;} },
     { key: 'meta_roas', label: 'Meta ROAS', get: function(r){ return fmtX(r.meta_roas); }, raw: function(r){return r.meta_roas===null||r.meta_roas===undefined?-1:r.meta_roas;} },
     { key: 'asr', label: 'ASR', get: function(r){ return fmtPct(r._hourly_asr) + fmtDeltaChip(r._deltaAsr, true); }, raw: function(r){return r._hourly_asr===null?-1:r._hourly_asr;} }
   ];
@@ -1055,7 +1057,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
       var pr = prevDayRows[r.hour];
       r._deltaMeta = (!isEmpty && pr) ? pctChange(r.meta_spend, pr.meta_spend) : null;
       r._deltaSpend = (!isEmpty && pr) ? pctChange(r.total_spend, pr.total_spend) : null;
-      r._deltaRevenue = (!isEmpty && pr) ? pctChange(r.total_sales, pr.total_sales) : null;
+      r._deltaRevenue = (!isEmpty && pr) ? pctChange(r.net_sales, pr.net_sales) : null;
       r._deltaAsr = (!isEmpty && pr) ? pctChange(r._hourly_asr, pr._hourly_asr) : null;
     });
     var rows = dayHours.slice();
@@ -1082,7 +1084,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     var prevTill = rangeTotals(prevDate(selectedTableDay), summaryUpto);
     till._deltaMeta = pctChange(till.meta_spend, prevTill.meta_spend);
     till._deltaSpend = pctChange(till.total_spend, prevTill.total_spend);
-    till._deltaRevenue = pctChange(till.total_sales, prevTill.total_sales);
+    till._deltaRevenue = pctChange(till.net_sales, prevTill.net_sales);
     till._deltaAsr = pctChange(till.asr, prevTill.asr);
     var summaryTr = document.createElement('tr');
     summaryTr.className = 'table-summary-row';
@@ -1091,8 +1093,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
       '<td class="num">' + fmtINR(till.meta_spend) + fmtDeltaChip(till._deltaMeta) + '</td>' +
       '<td class="num">' + fmtINR(till.google_spend) + '</td>' +
       '<td class="num">' + fmtINR(till.total_spend) + fmtDeltaChip(till._deltaSpend) + '</td>' +
-      '<td class="num">' + fmtINR(till.total_sales) + fmtDeltaChip(till._deltaRevenue) + '</td>' +
-      '<td class="num">' + fmtINR(till.net_sales) + '</td>' +
+      '<td class="num">' + fmtINR(till.net_sales) + fmtDeltaChip(till._deltaRevenue) + '</td>' +
       '<td class="num">' + fmtX(till.meta_roas) + '</td>' +
       '<td class="num">' + fmtPct(till.asr) + fmtDeltaChip(till._deltaAsr, true) + '</td>';
     tbody.appendChild(summaryTr);
@@ -1131,6 +1132,21 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
   var dateStartIdx = {};
   hourly.forEach(function(r, i) { if (dateStartIdx[r.date] === undefined) dateStartIdx[r.date] = i; });
 
+  // The default selection should be the single biggest spender on the day actually being
+  // looked at, not just whichever campaigns spent the most over the whole date range --
+  // a campaign that dominated in week 1 may be irrelevant today.
+  function topCampaignForDay(list, date) {
+    var baseIdx = dateStartIdx[date];
+    if (baseIdx === undefined) return list[0] || null;
+    var best = null, bestSpend = -1;
+    list.forEach(function(c) {
+      var sum = 0;
+      for (var h = 0; h < 24; h++) { var v = c.spend[baseIdx + h]; if (v) sum += v; }
+      if (sum > bestSpend) { bestSpend = sum; best = c; }
+    });
+    return best;
+  }
+
   var campDateSelect = document.getElementById('campDateSelect');
   days.forEach(function(d) {
     var opt = document.createElement('option');
@@ -1147,7 +1163,8 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     Array.prototype.forEach.call(channelSeg.querySelectorAll('button'), function(b){ b.classList.toggle('active', b===btn); });
     selectedCampaigns = {};
     var list = campaignsData[channel] || [];
-    list.slice(0, MAX_CAMPAIGNS).forEach(function(c) { selectedCampaigns[c.name] = true; });
+    var top = topCampaignForDay(list, campDate);
+    if (top) selectedCampaigns[top.name] = true;
     document.getElementById('googleNote').style.display = channel === 'google' ? 'block' : 'none';
     var metricSeg = document.getElementById('campMetricSeg');
     Array.prototype.forEach.call(metricSeg.querySelectorAll('button'), function(b) {
@@ -1304,7 +1321,8 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
   renderTable();
   (function initCampaigns() {
     var list = campaignsData.meta || [];
-    list.slice(0, MAX_CAMPAIGNS).forEach(function(c) { selectedCampaigns[c.name] = true; });
+    var top = topCampaignForDay(list, campDate);
+    if (top) selectedCampaigns[top.name] = true;
     renderCampChecklist();
     renderCampChart();
   })();
