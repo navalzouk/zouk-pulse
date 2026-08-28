@@ -313,6 +313,7 @@ tbody td.txt { text-align: left; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--surface-2); }
 tbody tr.zero td { color: var(--text-faint); }
+tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); border-bottom: 2px solid var(--border); }
 .table-scroll-body { max-height: 560px; overflow-y: auto; }
 
 .foot-note {
@@ -424,7 +425,7 @@ tbody tr.zero td { color: var(--text-faint); }
             </div>
           </div>
           <div class="foot-note">
-            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend, Revenue and ASR show the change from the previous hour that day. Rows with no spend and no orders are dimmed.
+            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend, Revenue and ASR compare each hour to the <i>same</i> hour on the previous day (apples to apples), not the hour before it. "Till Day" is the selected day's cumulative total so far, compared the same way against the previous day's total through that same point. Rows with no spend and no orders are dimmed.
           </div>
         </section>
       </section>
@@ -1016,16 +1017,46 @@ tbody tr.zero td { color: var(--text-faint); }
     return ((cur - prev) / Math.abs(prev)) * 100;
   }
 
+  // Sums (and, for the ratio fields, sum-of-numerator / sum-of-denominator) of the given
+  // date's hours 0..uptoHour (default: the whole day). Used both for the "Till Day"
+  // summary row and its previous-day comparison below.
+  function rangeTotals(date, uptoHour) {
+    var rows = hourlyByDate[date] || [];
+    var hi = (uptoHour === undefined || uptoHour === null) ? 23 : uptoHour;
+    var t = { meta_spend: 0, google_spend: 0, total_spend: 0, meta_conv_value: 0, total_sales: 0, net_sales: 0 };
+    for (var h = 0; h <= hi; h++) {
+      var r = rows[h];
+      if (!r) continue;
+      t.meta_spend += r.meta_spend || 0;
+      t.google_spend += r.google_spend || 0;
+      t.total_spend += r.total_spend || 0;
+      t.meta_conv_value += r.meta_conv_value || 0;
+      t.total_sales += r.total_sales || 0;
+      t.net_sales += r.net_sales || 0;
+    }
+    t.meta_roas = t.meta_spend > 0 ? t.meta_conv_value / t.meta_spend : null;
+    t.asr = (t.total_spend > 0 && t.net_sales > 0) ? (t.total_spend / t.net_sales) * 100 : null;
+    return t;
+  }
+
   function renderTable() {
     var dayHours = hourlyByDate[selectedTableDay] || [];
-    var prevRow = null;
+    // Apples-to-apples: each hour compares against the SAME hour on the previous day
+    // (today's 4AM vs yesterday's 4AM), not the hour right before it -- hour-over-hour
+    // was comparing unrelated hours of the same day and left the first hour with nothing
+    // to compare against at all.
+    var prevDayRows = hourlyByDate[prevDate(selectedTableDay)] || [];
     dayHours.forEach(function(r) {
       if (!r) return;
-      r._deltaMeta = prevRow ? pctChange(r.meta_spend, prevRow.meta_spend) : null;
-      r._deltaSpend = prevRow ? pctChange(r.total_spend, prevRow.total_spend) : null;
-      r._deltaRevenue = prevRow ? pctChange(r.total_sales, prevRow.total_sales) : null;
-      r._deltaAsr = prevRow ? pctChange(r._hourly_asr, prevRow._hourly_asr) : null;
-      prevRow = r;
+      // Don't compute a delta for an hour that's entirely empty itself (hasn't happened
+      // yet today, or a genuinely activity-free hour) -- "-100%" on a row that's already
+      // dimmed to mean "nothing here" reads as an alarming drop rather than what it is.
+      var isEmpty = (r.total_spend === 0 && r.orders === 0);
+      var pr = prevDayRows[r.hour];
+      r._deltaMeta = (!isEmpty && pr) ? pctChange(r.meta_spend, pr.meta_spend) : null;
+      r._deltaSpend = (!isEmpty && pr) ? pctChange(r.total_spend, pr.total_spend) : null;
+      r._deltaRevenue = (!isEmpty && pr) ? pctChange(r.total_sales, pr.total_sales) : null;
+      r._deltaAsr = (!isEmpty && pr) ? pctChange(r._hourly_asr, pr._hourly_asr) : null;
     });
     var rows = dayHours.slice();
     var col = cols.find(function(c){ return c.key === sortKey; });
@@ -1039,6 +1070,33 @@ tbody tr.zero td { color: var(--text-faint); }
     });
     var tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
+
+    // ---------- "Till Day" summary row -- today's (or the selected day's) cumulative
+    // total, pinned above the hour-by-hour log, compared against the same window on
+    // the previous day. For the current partial day this stops at the last COMPLETE
+    // hour (mirroring the ongoing-hour blank above and the Hour by Hour fair-cutoff fix
+    // in v11/v12) rather than folding in the still-filling current hour on one side only.
+    var summaryIsPartial = (selectedTableDay === DATA.meta.today && DATA.meta.last_active_hour_today < 23);
+    var summaryUpto = summaryIsPartial ? (DATA.meta.last_active_hour_today - 1) : 23;
+    var till = rangeTotals(selectedTableDay, summaryUpto);
+    var prevTill = rangeTotals(prevDate(selectedTableDay), summaryUpto);
+    till._deltaMeta = pctChange(till.meta_spend, prevTill.meta_spend);
+    till._deltaSpend = pctChange(till.total_spend, prevTill.total_spend);
+    till._deltaRevenue = pctChange(till.total_sales, prevTill.total_sales);
+    till._deltaAsr = pctChange(till.asr, prevTill.asr);
+    var summaryTr = document.createElement('tr');
+    summaryTr.className = 'table-summary-row';
+    summaryTr.innerHTML =
+      '<td class="txt">Till Day</td>' +
+      '<td class="num">' + fmtINR(till.meta_spend) + fmtDeltaChip(till._deltaMeta) + '</td>' +
+      '<td class="num">' + fmtINR(till.google_spend) + '</td>' +
+      '<td class="num">' + fmtINR(till.total_spend) + fmtDeltaChip(till._deltaSpend) + '</td>' +
+      '<td class="num">' + fmtINR(till.total_sales) + fmtDeltaChip(till._deltaRevenue) + '</td>' +
+      '<td class="num">' + fmtINR(till.net_sales) + '</td>' +
+      '<td class="num">' + fmtX(till.meta_roas) + '</td>' +
+      '<td class="num">' + fmtPct(till.asr) + fmtDeltaChip(till._deltaAsr, true) + '</td>';
+    tbody.appendChild(summaryTr);
+
     // The currently-in-progress hour (today's last_active_hour_today, when today isn't
     // fully over yet) only holds however many minutes had elapsed when the source file
     // was last pulled -- e.g. 14 minutes of a whole hour. Showing its real figures next
