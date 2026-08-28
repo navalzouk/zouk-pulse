@@ -510,6 +510,13 @@ tbody tr.zero td { color: var(--text-faint); }
     var hh = h % 12; if (hh === 0) hh = 12;
     return hh + ampm;
   };
+  // Compact tick label for axes that show every one of the 24 hours at once --
+  // just the 12-hour-clock number (12,1,2,...,11,12,1,...,11), no AM/PM suffix,
+  // since 24 full "7AM"-style labels don't fit the chart width.
+  var shortHourLabel = function(h) {
+    var hh = h % 12; if (hh === 0) hh = 12;
+    return String(hh);
+  };
   var dayLabel = function(d) {
     var dt = new Date(d + 'T00:00:00');
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -831,9 +838,9 @@ tbody tr.zero td { color: var(--text-faint); }
       lbl.textContent = def.fmt(val);
       svg.appendChild(lbl);
     }
-    for (var i = 0; i < n; i += 2) {
+    for (var i = 0; i < n; i++) {
       var lx = svgEl('text', {x: x(i), y: H - 8, class:'axis-label', 'text-anchor':'middle'});
-      lx.textContent = hourLabel(i);
+      lx.textContent = shortHourLabel(i);
       svg.appendChild(lx);
     }
 
@@ -886,14 +893,12 @@ tbody tr.zero td { color: var(--text-faint); }
       '<span><i style="background:' + def.color + '"></i>' + dayLabel(hhDate) + '</span>' +
       '<span><i style="background:' + def.color + ';opacity:0.35"></i>' + dayLabel(hhCompare) + '</span>';
 
-    var dateSum = def.daySummary(hhDate);
-
     // If the primary Date is the current partial day (fewer than 24 real hours in
     // yet), a straight full-day-vs-full-day comparison is misleading -- "today" will
     // always look like a huge drop simply because it has fewer hours behind it, not
     // because performance actually fell. So the Compare day is also summed only
-    // through that same cutoff hour, and BOTH the partial and the full Compare total
-    // are shown side by side, so nothing is hidden -- just labeled honestly.
+    // through the same cutoff, and BOTH the partial and the full Compare total are
+    // shown side by side, so nothing is hidden -- just labeled honestly.
     var cutoffHour = DATA.meta.last_active_hour_today;
     var dateIsPartial = (hhDate === DATA.meta.today) && (cutoffHour !== null) && (cutoffHour < 23);
 
@@ -910,10 +915,22 @@ tbody tr.zero td { color: var(--text-faint); }
       return total;
     }
 
+    var dateSum = def.daySummary(hhDate);
     var summary = document.getElementById('compareSummary');
     if (dateIsPartial) {
-      var compTillSum = partialSummary(activeMetric, hhCompare, cutoffHour);
+      // "last_active_hour_today" is the hour bucket the most recent ingested file
+      // touched at all -- it can be (and usually is) only a few minutes into that
+      // hour, not a fully-elapsed one (e.g. a file pulled at 7:14 leaves the 7AM
+      // bucket holding 14 minutes' worth of orders, not a full hour's). Comparing
+      // that sliver against the compare day's FULL 7AM hour would just move the
+      // same unfair-comparison bug one hour later. So both totals below stop at the
+      // last hour BEFORE the cutoff -- the last one guaranteed fully elapsed --
+      // while the label still reads "till <cutoffHour>" (e.g. "till 7AM"), since
+      // hourLabel(cutoffHour) names the clock boundary those complete hours run up to.
+      var lastCompleteHour = cutoffHour - 1;
+      var compTillSum = partialSummary(activeMetric, hhCompare, lastCompleteHour);
       var compFullSum = def.daySummary(hhCompare);
+      dateSum = partialSummary(activeMetric, hhDate, lastCompleteHour);
       var delta = (compTillSum !== null && compTillSum !== undefined && compTillSum !== 0 && dateSum !== null && dateSum !== undefined)
         ? ((dateSum - compTillSum) / Math.abs(compTillSum)) * 100 : null;
       var deltaCls = delta === null ? '' : (delta >= 0 ? 'up' : 'down');
