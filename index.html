@@ -824,13 +824,23 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     });
   });
 
-  function drawCompareBars(svg, dateRows, compareRows, def) {
+  function drawCompareBars(svg, dateRows, compareRows, def, ongoingIdx) {
     var W = 1196, H = 320, padL = 60, padR = 18, padT = 16, padB = 32;
     var innerW = W - padL - padR, innerH = H - padT - padB;
     svg.setAttribute('width', W); svg.setAttribute('height', H);
     svg.innerHTML = '';
     var n = 24;
-    var dateVals = dateRows.map(def.get);
+    // ongoingIdx marks the currently-in-progress hour (when the primary Date is today) --
+    // it's only ever partially elapsed, so rather than showing its real but misleadingly
+    // small partial value, its bar is rendered exactly like a not-yet-started hour: fed a
+    // blank all-zero/null row instead of its real one, so it comes out identical to how
+    // this same def already renders a genuine empty hour (a bare sliver for volume
+    // metrics, no bar at all for ASR, since _hourly_asr is null when net_sales is 0).
+    // Only ever applies to the primary Date series -- the Compare day is drawn in full.
+    var BLANK_HOUR_ROW = { meta_spend: 0, google_spend: 0, total_spend: 0, net_sales: 0, sessions: 0, _hourly_asr: null };
+    var dateVals = dateRows.map(function(r, i) {
+      return (ongoingIdx !== null && ongoingIdx !== undefined && i === ongoingIdx) ? def.get(BLANK_HOUR_ROW) : def.get(r);
+    });
     var compVals = compareRows.map(def.get);
     var allVals = dateVals.concat(compVals).filter(function(v){ return v !== null && v !== undefined && !isNaN(v); });
     var maxV = Math.max.apply(null, allVals.concat([1])) * 1.15;
@@ -900,7 +910,12 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     var def = metricDefs[activeMetric];
     var dateRows = hourlyByDate[hhDate] || [];
     var compareRows = hourlyByDate[hhCompare] || [];
-    drawCompareBars(document.getElementById('metricChart'), dateRows, compareRows, def);
+    var cutoffHour = DATA.meta.last_active_hour_today;
+    // The currently-in-progress hour (when the primary Date is today) is only ever
+    // partially elapsed -- don't draw a bar for it at all, same as the not-yet-started
+    // hours after it.
+    var ongoingChartHour = (hhDate === DATA.meta.today && cutoffHour !== null && cutoffHour < 23) ? cutoffHour : null;
+    drawCompareBars(document.getElementById('metricChart'), dateRows, compareRows, def, ongoingChartHour);
 
     var legend = document.getElementById('hhLegend');
     legend.innerHTML =
@@ -913,7 +928,6 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     // because performance actually fell. So the Compare day is also summed only
     // through the same cutoff, and BOTH the partial and the full Compare total are
     // shown side by side, so nothing is hidden -- just labeled honestly.
-    var cutoffHour = DATA.meta.last_active_hour_today;
     var dateIsPartial = (hhDate === DATA.meta.today) && (cutoffHour !== null) && (cutoffHour < 23);
 
     function partialSummary(metricKey, d, uptoHour) {
