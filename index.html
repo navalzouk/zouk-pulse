@@ -346,12 +346,9 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
         <button class="tab-btn active" data-tab="hourbyhour" role="tab" aria-selected="true" id="tabbtn-hourbyhour" aria-controls="tab-hourbyhour">Hourly Trend</button>
         <button class="tab-btn" data-tab="hourlydetail" role="tab" aria-selected="false" id="tabbtn-hourlydetail" aria-controls="tab-hourlydetail">Hourly Detail</button>
         <button class="tab-btn" data-tab="overview" role="tab" aria-selected="false" id="tabbtn-overview" aria-controls="tab-overview">Daily Trend</button>
-        <button class="tab-btn" data-tab="campaigns" role="tab" aria-selected="false" id="tabbtn-campaigns" aria-controls="tab-campaigns">Campaigns</button>
+        <!-- Campaigns tab removed for now -- see the "CAMPAIGNS" section further down for the
+             matching HTML/JS, both kept in place (just unrendered/guarded) for easy restore. -->
       </nav>
-      <div class="range-note">
-        <div><strong id="rangeLabel">Aug 1 – 27, 2026</strong> &middot; hourly, IST</div>
-        <div class="stamp" id="stampNote"></div>
-      </div>
     </div>
   </header>
 
@@ -430,7 +427,8 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
         </section>
       </section>
 
-      <!-- ============ CAMPAIGNS ============ -->
+      <!-- ============ CAMPAIGNS (removed from nav for now -- see note above the nav
+           buttons; kept here, commented out, for easy restore) ============
       <section class="tab-panel" id="tab-campaigns" role="tabpanel" aria-labelledby="tabbtn-campaigns">
         <section class="panel">
           <div class="panel-head">
@@ -477,6 +475,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
           </div>
         </section>
       </section>
+      -->
 
     </div>
   </main>
@@ -550,11 +549,18 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
   };
   var rangeStartDate = daily[0].date, rangeEndDate = daily[daily.length - 1].date;
   var rangeShortLabel = fmtRangeShort(rangeStartDate, rangeEndDate);
-  document.getElementById('rangeLabel').textContent =
-    rangeShortLabel + ', ' + new Date(rangeEndDate + 'T00:00:00').getFullYear();
-
-  document.getElementById('stampNote').textContent =
-    'Today (' + dayLabel(DATA.meta.today) + ') shown through ' + hourLabel(DATA.meta.last_active_hour_today) + ' IST — later hours haven’t happened yet';
+  // The top-right range/stamp note ("Aug 1-28, 2026 · hourly, IST" / "Today (Aug 28)
+  // shown through 7AM IST...") was removed from the header -- guarded rather than
+  // deleted outright so it's a one-line restore (just add the elements back and drop
+  // this guard) if it's wanted again later.
+  if (document.getElementById('rangeLabel')) {
+    document.getElementById('rangeLabel').textContent =
+      rangeShortLabel + ', ' + new Date(rangeEndDate + 'T00:00:00').getFullYear();
+  }
+  if (document.getElementById('stampNote')) {
+    document.getElementById('stampNote').textContent =
+      'Today (' + dayLabel(DATA.meta.today) + ') shown through ' + hourLabel(DATA.meta.last_active_hour_today) + ' IST — later hours haven’t happened yet';
+  }
 
   // ---------- tabs ----------
   var tabBtns = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
@@ -1122,7 +1128,12 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
 
   // ============================================================
   // CAMPAIGNS — channel + multi-campaign + metric + date
+  // (tab removed from the nav/HTML for now -- this whole block is gated on
+  // channelSeg existing, so it just quietly does nothing rather than throwing
+  // on the now-missing DOM elements. Restore the HTML above and this reactivates
+  // with no further JS changes needed.)
   // ============================================================
+  if (document.getElementById('channelSeg')) {
   var campaignsData = DATA.campaigns || { meta: [], google: [] };
   var channel = 'meta';
   var campMetric = 'spend';
@@ -1314,17 +1325,20 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
       })(i);
     }
   }
+  } // end Campaigns block guard (if document.getElementById('channelSeg'))
 
   // ---------- init ----------
   drawMainChart();
   renderMetricChart();
   renderTable();
-  (function initCampaigns() {
-    var list = campaignsData.meta || [];
-    var top = topCampaignForDay(list, campDate);
-    if (top) selectedCampaigns[top.name] = true;
-    renderCampChecklist();
-    renderCampChart();
-  })();
+  if (document.getElementById('channelSeg')) {
+    (function initCampaigns() {
+      var list = campaignsData.meta || [];
+      var top = topCampaignForDay(list, campDate);
+      if (top) selectedCampaigns[top.name] = true;
+      renderCampChecklist();
+      renderCampChart();
+    })();
+  }
 })();
 </script>
