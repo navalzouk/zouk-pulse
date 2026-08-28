@@ -407,7 +407,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
             </div>
           </div>
           <div class="foot-note">
-            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales (=Revenue) for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend and Revenue compare each hour to the <i>same</i> hour on the previous day (apples to apples), not the hour before it. ASR's small figure is different: rather than a % change, it's the previous day's ASR at that same point &mdash; the same hour, or for "Till Day," the same cumulative-to-hour window &mdash; shown as a value so it's directly comparable. The color lives on the main ASR figure, not that reference figure: green means it's the lower (better) of the two, red means higher; the reference figure itself is left uncolored. "Till Day" is the selected day's cumulative total so far, compared the same way against the previous day's total through that same point. Rows with no spend and no orders are dimmed.
+            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales (=Revenue) for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend and Revenue compare each hour to the <i>same</i> hour on the previous day (apples to apples), not the hour before it. Revenue's chip is green when up, red when down; Meta and Total spend are a cost, so their chips run the opposite way &mdash; green when spend is <i>down</i>, red when it's up. ASR's small figure is different: rather than a % change, it's the previous day's ASR at that same point &mdash; the same hour, or for "Till Day," the same cumulative-to-hour window &mdash; shown as a value so it's directly comparable. The color lives on the main ASR figure, not that reference figure: green means it's the lower (better) of the two, red means higher; the reference figure itself is left uncolored. "Till Day" is the selected day's cumulative total so far, compared the same way against the previous day's total through that same point. Rows with no spend and no orders are dimmed.
           </div>
         </section>
       </section>
@@ -730,16 +730,21 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
   var metricDefs = {
     net_sales:     { label: 'Revenue',        color: 'var(--moss)',   get: function(r){ return r.net_sales; },   fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR,
                      daySummary: function(d){ return dailyByDate[d].net_sales; } },
+    // Spend metrics (Meta, Google) are a cost, not a volume metric -- less is the "good"
+    // direction, so (like ASR below) their delta chips run backwards from Revenue/Sessions:
+    // green when spend is DOWN, red when it's up.
     meta_spend:    { label: 'Meta Spend',     color: 'var(--petrol)', get: function(r){ return r.meta_spend; },  fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR,
+                     invertDelta: true,
                      daySummary: function(d){ return dailyByDate[d].meta_spend; } },
     google_spend:  { label: 'Google Spend',   color: 'var(--brass)',  get: function(r){ return r.google_spend; },fmt: function(v){ return fmtINR(v, {compact:true}); }, fmtFull: fmtINR,
+                     invertDelta: true,
                      daySummary: function(d){ return dailyByDate[d].google_spend; } },
     sessions:      { label: 'Sessions',       color: 'var(--clay)',   get: function(r){ return r.sessions; },    fmt: fmtNum, fmtFull: fmtNum,
                      daySummary: function(d){ return dailyByDate[d].sessions; } },
     hourly_asr:    { label: 'Hourly ASR',     color: 'var(--indigo)', get: function(r){ return r._hourly_asr; }, fmt: fmtPct, fmtFull: fmtPct,
-                     // ASR is a cost ratio -- lower is better. Every other metric here is a
-                     // volume metric where more is the "good" direction, so this is the one
-                     // case where the delta chip's up/down colors need to run backwards.
+                     // ASR is a cost ratio -- lower is better -- same rule as the spend
+                     // metrics above, so its delta chip's up/down colors also run backwards
+                     // from Revenue/Sessions.
                      invertDelta: true,
                      daySummary: function(d){ var row = dailyByDate[d]; return (row.total_spend > 0 && row.net_sales > 0) ? (row.total_spend/row.net_sales)*100 : null; } }
   };
@@ -998,8 +1003,9 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
 
   var fmtDeltaChip = function(pct, invert) {
     if (pct === null || pct === undefined || isNaN(pct)) return '';
-    // ASR (invert=true) is a cost ratio -- a decline is the good direction, so its
-    // chip colors run backwards from every other (volume) column here.
+    // invert=true marks a cost metric (Meta/Google/Total spend, ASR) where a decline is
+    // the good direction, so its chip colors run backwards from a volume column (Revenue) --
+    // green means spend/ASR went DOWN, not up.
     var good = invert ? pct <= 0 : pct >= 0;
     var cls = good ? 'up' : 'down';
     var sign = pct >= 0 ? '+' : '';
@@ -1024,9 +1030,9 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
 
   var cols = [
     { key: 'hour', label: 'Hour', txt: true, get: function(r){ return hourLabel(r.hour); } },
-    { key: 'meta_spend', label: 'Meta', get: function(r){ return fmtINR(r.meta_spend) + fmtDeltaChip(r._deltaMeta); }, raw: function(r){return r.meta_spend;} },
+    { key: 'meta_spend', label: 'Meta', get: function(r){ return fmtINR(r.meta_spend) + fmtDeltaChip(r._deltaMeta, true); }, raw: function(r){return r.meta_spend;} },
     { key: 'google_spend', label: 'Google', get: function(r){ return fmtINR(r.google_spend); }, raw: function(r){return r.google_spend;} },
-    { key: 'total_spend', label: 'Total spend', get: function(r){ return fmtINR(r.total_spend) + fmtDeltaChip(r._deltaSpend); }, raw: function(r){return r.total_spend;} },
+    { key: 'total_spend', label: 'Total spend', get: function(r){ return fmtINR(r.total_spend) + fmtDeltaChip(r._deltaSpend, true); }, raw: function(r){return r.total_spend;} },
     // Revenue = net sales throughout this dashboard (never gross total_sales) -- there is
     // deliberately no separate "Net sales" column here, since that would just be the same
     // number twice under two names.
@@ -1134,9 +1140,9 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     summaryTr.className = 'table-summary-row';
     summaryTr.innerHTML =
       '<td class="txt">Till Day</td>' +
-      '<td class="num">' + fmtINR(till.meta_spend) + fmtDeltaChip(till._deltaMeta) + '</td>' +
+      '<td class="num">' + fmtINR(till.meta_spend) + fmtDeltaChip(till._deltaMeta, true) + '</td>' +
       '<td class="num">' + fmtINR(till.google_spend) + '</td>' +
-      '<td class="num">' + fmtINR(till.total_spend) + fmtDeltaChip(till._deltaSpend) + '</td>' +
+      '<td class="num">' + fmtINR(till.total_spend) + fmtDeltaChip(till._deltaSpend, true) + '</td>' +
       '<td class="num">' + fmtINR(till.net_sales) + fmtDeltaChip(till._deltaRevenue) + '</td>' +
       '<td class="num">' + fmtX(till.meta_roas) + '</td>' +
       '<td class="num">' + fmtAsrCell(till.asr, prevTill.asr) + '</td>';
