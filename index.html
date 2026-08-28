@@ -1039,13 +1039,22 @@ tbody tr.zero td { color: var(--text-faint); }
     });
     var tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
+    // The currently-in-progress hour (today's last_active_hour_today, when today isn't
+    // fully over yet) only holds however many minutes had elapsed when the source file
+    // was last pulled -- e.g. 14 minutes of a whole hour. Showing its real figures next
+    // to fully-elapsed hours reads as a huge, misleading drop (see the v12 Hour by Hour
+    // fix for the same root cause), so this row is blanked out here instead, the same
+    // way not-yet-arrived future hours already are.
+    var ongoingHour = (selectedTableDay === DATA.meta.today && DATA.meta.last_active_hour_today < 23)
+      ? DATA.meta.last_active_hour_today : null;
     rows.forEach(function(r) {
       var tr = document.createElement('tr');
-      if (r.total_spend === 0 && r.orders === 0) tr.className = 'zero';
+      var isOngoing = (ongoingHour !== null && r.hour === ongoingHour);
+      if ((r.total_spend === 0 && r.orders === 0) || isOngoing) tr.className = 'zero';
       cols.forEach(function(c) {
         var td = document.createElement('td');
         td.className = c.txt ? 'txt' : 'num';
-        td.innerHTML = c.get(r);
+        td.innerHTML = (isOngoing && c.key !== 'hour') ? '—' : c.get(r);
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
