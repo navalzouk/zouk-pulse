@@ -887,16 +887,53 @@ tbody tr.zero td { color: var(--text-faint); }
       '<span><i style="background:' + def.color + ';opacity:0.35"></i>' + dayLabel(hhCompare) + '</span>';
 
     var dateSum = def.daySummary(hhDate);
-    var compSum = def.daySummary(hhCompare);
-    var delta = (compSum !== null && compSum !== undefined && compSum !== 0 && dateSum !== null && dateSum !== undefined)
-      ? ((dateSum - compSum) / Math.abs(compSum)) * 100 : null;
-    var deltaCls = delta === null ? '' : (delta >= 0 ? 'up' : 'down');
-    var deltaSign = delta === null ? '' : (delta >= 0 ? '+' : '');
+
+    // If the primary Date is the current partial day (fewer than 24 real hours in
+    // yet), a straight full-day-vs-full-day comparison is misleading -- "today" will
+    // always look like a huge drop simply because it has fewer hours behind it, not
+    // because performance actually fell. So the Compare day is also summed only
+    // through that same cutoff hour, and BOTH the partial and the full Compare total
+    // are shown side by side, so nothing is hidden -- just labeled honestly.
+    var cutoffHour = DATA.meta.last_active_hour_today;
+    var dateIsPartial = (hhDate === DATA.meta.today) && (cutoffHour !== null) && (cutoffHour < 23);
+
+    function partialSummary(metricKey, d, uptoHour) {
+      var rows = hourlyByDate[d] || [];
+      if (metricKey === 'hourly_asr' || metricKey === 'cumulative_asr') {
+        var spend = 0, net = 0;
+        for (var h = 0; h <= uptoHour; h++) { var r = rows[h]; if (r) { spend += r.total_spend; net += r.net_sales; } }
+        return (spend > 0 && net > 0) ? (spend / net) * 100 : null;
+      }
+      var field = { net_sales: 'net_sales', meta_spend: 'meta_spend', google_spend: 'google_spend', sessions: 'sessions' }[metricKey];
+      var total = 0;
+      for (var h2 = 0; h2 <= uptoHour; h2++) { var r2 = rows[h2]; if (r2) total += (r2[field] || 0); }
+      return total;
+    }
+
     var summary = document.getElementById('compareSummary');
-    summary.innerHTML =
-      '<div class="cs-item"><div class="cs-label">' + dayLabel(hhDate) + ' total</div><div class="cs-value">' + def.fmt(dateSum) +
-      (delta === null ? '' : '<span class="cs-delta ' + deltaCls + '">' + deltaSign + delta.toFixed(1) + '%</span>') + '</div></div>' +
-      '<div class="cs-item"><div class="cs-label">' + dayLabel(hhCompare) + ' total</div><div class="cs-value">' + def.fmt(compSum) + '</div></div>';
+    if (dateIsPartial) {
+      var compTillSum = partialSummary(activeMetric, hhCompare, cutoffHour);
+      var compFullSum = def.daySummary(hhCompare);
+      var delta = (compTillSum !== null && compTillSum !== undefined && compTillSum !== 0 && dateSum !== null && dateSum !== undefined)
+        ? ((dateSum - compTillSum) / Math.abs(compTillSum)) * 100 : null;
+      var deltaCls = delta === null ? '' : (delta >= 0 ? 'up' : 'down');
+      var deltaSign = delta === null ? '' : (delta >= 0 ? '+' : '');
+      summary.innerHTML =
+        '<div class="cs-item"><div class="cs-label">' + dayLabel(hhDate) + ' total</div><div class="cs-value">' + def.fmt(dateSum) +
+        (delta === null ? '' : '<span class="cs-delta ' + deltaCls + '">' + deltaSign + delta.toFixed(1) + '%</span>') + '</div></div>' +
+        '<div class="cs-item"><div class="cs-label">' + dayLabel(hhCompare) + ' till ' + hourLabel(cutoffHour) + '</div><div class="cs-value">' + def.fmt(compTillSum) + '</div></div>' +
+        '<div class="cs-item"><div class="cs-label">' + dayLabel(hhCompare) + ' total</div><div class="cs-value">' + def.fmt(compFullSum) + '</div></div>';
+    } else {
+      var compSum = def.daySummary(hhCompare);
+      var delta = (compSum !== null && compSum !== undefined && compSum !== 0 && dateSum !== null && dateSum !== undefined)
+        ? ((dateSum - compSum) / Math.abs(compSum)) * 100 : null;
+      var deltaCls = delta === null ? '' : (delta >= 0 ? 'up' : 'down');
+      var deltaSign = delta === null ? '' : (delta >= 0 ? '+' : '');
+      summary.innerHTML =
+        '<div class="cs-item"><div class="cs-label">' + dayLabel(hhDate) + ' total</div><div class="cs-value">' + def.fmt(dateSum) +
+        (delta === null ? '' : '<span class="cs-delta ' + deltaCls + '">' + deltaSign + delta.toFixed(1) + '%</span>') + '</div></div>' +
+        '<div class="cs-item"><div class="cs-label">' + dayLabel(hhCompare) + ' total</div><div class="cs-value">' + def.fmt(compSum) + '</div></div>';
+    }
   }
 
   // ============================================================
