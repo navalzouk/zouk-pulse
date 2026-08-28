@@ -267,6 +267,11 @@ svg.chart { display: block; overflow: visible; }
 .delta-chip.up { color: var(--moss); }
 .delta-chip.down { color: var(--clay); }
 
+/* ---------- hourly-detail ASR cell: color lives on the main (selected-day) figure,
+   not the reference chip next to it (see fmtAsrCell) ---------- */
+.asr-val.up { color: var(--moss); }
+.asr-val.down { color: var(--clay); }
+
 /* ---------- campaigns: checklist above, full-width chart below ---------- */
 .camp-layout { display: flex; flex-direction: column; gap: 20px; }
 .camp-layout > div { min-width: 0; }
@@ -402,7 +407,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
             </div>
           </div>
           <div class="foot-note">
-            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales (=Revenue) for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend and Revenue compare each hour to the <i>same</i> hour on the previous day (apples to apples), not the hour before it. ASR's small figure is different: rather than a % change, it's the previous day's ASR at that same point &mdash; the same hour, or for "Till Day," the same cumulative-to-hour window &mdash; shown as a value so it's directly comparable; green means today's ASR is the lower (better) of the two, red means higher. "Till Day" is the selected day's cumulative total so far, compared the same way against the previous day's total through that same point. Rows with no spend and no orders are dimmed.
+            <b>Reading this table:</b> Meta ROAS is Meta's own reported purchase conversion value &divide; Meta spend for that hour &mdash; a Meta-attributed view, distinct from the blended ROAS shown elsewhere. ASR (ad-spend ratio) is (Meta + Google spend) &divide; net sales (=Revenue) for that hour &mdash; the inverse view, on a net-of-returns basis. The small +/&minus; figures next to Meta, Total spend and Revenue compare each hour to the <i>same</i> hour on the previous day (apples to apples), not the hour before it. ASR's small figure is different: rather than a % change, it's the previous day's ASR at that same point &mdash; the same hour, or for "Till Day," the same cumulative-to-hour window &mdash; shown as a value so it's directly comparable. The color lives on the main ASR figure, not that reference figure: green means it's the lower (better) of the two, red means higher; the reference figure itself is left uncolored. "Till Day" is the selected day's cumulative total so far, compared the same way against the previous day's total through that same point. Rows with no spend and no orders are dimmed.
           </div>
         </section>
       </section>
@@ -991,13 +996,16 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
   // the previous day's ASR value itself, at the same point (same hour for a per-hour row;
   // the same cumulative-to-hour window for the "Till Day" row), so it's directly readable
   // next to today's figure rather than requiring the reader to do the delta math themselves.
-  // Still colored green/red the same inverted way as every other ASR chip here: green when
-  // today's figure (the main number this chip sits next to) is the lower/better one.
-  var fmtAsrRefChip = function(curVal, refVal) {
-    if (curVal === null || curVal === undefined || isNaN(curVal) || refVal === null || refVal === undefined || isNaN(refVal)) return '';
+  // The color lives on the MAIN (selected day) figure, not the reference chip -- green when
+  // it's the lower/better of the two, red when higher; the previous-day reference figure is
+  // deliberately left in the table's normal (black) text color, since it's just context, not
+  // itself a "good" or "bad" number to react to.
+  var fmtAsrCell = function(curVal, refVal) {
+    var mainTxt = fmtPct(curVal);
+    if (curVal === null || curVal === undefined || isNaN(curVal) || refVal === null || refVal === undefined || isNaN(refVal)) return mainTxt;
     var good = curVal <= refVal;
     var cls = good ? 'up' : 'down';
-    return ' <span class="delta-chip ' + cls + '">' + fmtPct(refVal) + '</span>';
+    return '<span class="asr-val ' + cls + '">' + mainTxt + '</span> <span class="delta-chip">' + fmtPct(refVal) + '</span>';
   };
 
   var cols = [
@@ -1010,7 +1018,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     // number twice under two names.
     { key: 'net_sales', label: 'Revenue', get: function(r){ return fmtINR(r.net_sales) + fmtDeltaChip(r._deltaRevenue); }, raw: function(r){return r.net_sales;} },
     { key: 'meta_roas', label: 'Meta ROAS', get: function(r){ return fmtX(r.meta_roas); }, raw: function(r){return r.meta_roas===null||r.meta_roas===undefined?-1:r.meta_roas;} },
-    { key: 'asr', label: 'ASR', get: function(r){ return fmtPct(r._hourly_asr) + fmtAsrRefChip(r._hourly_asr, r._prevHourAsr); }, raw: function(r){return r._hourly_asr===null?-1:r._hourly_asr;} }
+    { key: 'asr', label: 'ASR', get: function(r){ return fmtAsrCell(r._hourly_asr, r._prevHourAsr); }, raw: function(r){return r._hourly_asr===null?-1:r._hourly_asr;} }
   ];
   var sortKey = 'hour', sortDir = 1;
   var theadRow = document.getElementById('tableHead');
@@ -1078,7 +1086,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
       r._deltaSpend = (!isEmpty && pr) ? pctChange(r.total_spend, pr.total_spend) : null;
       r._deltaRevenue = (!isEmpty && pr) ? pctChange(r.net_sales, pr.net_sales) : null;
       // ASR's reference figure is the previous day's own hourly ASR value (not a % change
-      // vs it) -- see fmtAsrRefChip above.
+      // vs it) -- see fmtAsrCell above.
       r._prevHourAsr = (!isEmpty && pr) ? pr._hourly_asr : null;
     });
     var rows = dayHours.slice();
@@ -1107,7 +1115,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
     till._deltaSpend = pctChange(till.total_spend, prevTill.total_spend);
     till._deltaRevenue = pctChange(till.net_sales, prevTill.net_sales);
     // ASR's reference figure here is the previous day's own cumulative ASR through that
-    // same window (not a % change vs it) -- see fmtAsrRefChip above.
+    // same window (not a % change vs it) -- see fmtAsrCell above.
     var summaryTr = document.createElement('tr');
     summaryTr.className = 'table-summary-row';
     summaryTr.innerHTML =
@@ -1117,7 +1125,7 @@ tbody tr.table-summary-row td { font-weight: 700; background: var(--surface-2); 
       '<td class="num">' + fmtINR(till.total_spend) + fmtDeltaChip(till._deltaSpend) + '</td>' +
       '<td class="num">' + fmtINR(till.net_sales) + fmtDeltaChip(till._deltaRevenue) + '</td>' +
       '<td class="num">' + fmtX(till.meta_roas) + '</td>' +
-      '<td class="num">' + fmtPct(till.asr) + fmtAsrRefChip(till.asr, prevTill.asr) + '</td>';
+      '<td class="num">' + fmtAsrCell(till.asr, prevTill.asr) + '</td>';
     tbody.appendChild(summaryTr);
 
     // The currently-in-progress hour (today's last_active_hour_today, when today isn't
